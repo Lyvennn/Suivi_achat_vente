@@ -8,7 +8,7 @@ from datetime import datetime
 # Page Config
 st.set_page_config(page_title="Suivi d'Achat / Vente", page_icon="🎴", layout="wide")
 
-# CSS personnalisé : Effet Arc-en-Ciel (> 200%) + Centrage vertical/horizontal
+# CSS personnalisé : Effet Arc-en-Ciel (> 200%) + Centrage vertical/horizontal + Espacement vertical des lignes
 st.markdown("""
 <style>
 @keyframes rainbow_animation {
@@ -31,6 +31,8 @@ st.markdown("""
     text-align: center;
     width: 100%;
     min-height: 60px;
+    padding-top: 6px;
+    padding-bottom: 6px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -278,18 +280,17 @@ if not df.empty:
     df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
 
     if not df_stock_display.empty:
-        # Repartissage ajusté des colonnes (P. Achat & Tot. Achat resserrés pour laisser plus d'espace à Action)
-        cols_header = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.8, 0.8, 0.9, 1.0])
+        # Largeurs réajustées pour que "Action" soit parfaitement aligné avec le caddie
+        cols_header = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 0.6])
         headers = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Action"]
         for col, h in zip(cols_header, headers):
             col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
         for idx, row in df_stock_display.iterrows():
-            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.8, 0.8, 0.9, 1.0])
+            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 0.6])
             
             c_id.markdown(f"<div class='cell-center'><code>{row['id']}</code></div>", unsafe_allow_html=True)
             
-            # Images agrandies à width='60'
             if pd.notna(row.get('image_url')) and str(row['image_url']).strip() != "":
                 c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='60' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
             else:
@@ -321,13 +322,13 @@ if not df.empty:
             )
             max_marge_val = df_vendu_display["Marge_Calc"].max()
 
-            cols_header_v = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 1.0])
+            cols_header_v = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 0.6])
             headers_v = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Action"]
             for col, h in zip(cols_header_v, headers_v):
                 col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
             for idx, row in df_vendu_display.iterrows():
-                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 1.0])
+                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 0.6])
                 
                 p_achat = row['prixAchat']
                 marge_pct = row["Marge_Calc"]
