@@ -549,5 +549,48 @@ if not df.empty:
             else:
                 st.info("Réalisez au moins une vente pour afficher les courbes comparatives.")
 
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- 7. GRAPHIQUE 3: BARRE HORIZONTALE DÉCOUPÉE PAR TYPE D'ITEM ---
+    if not df_stock_global.empty:
+        with st.container(border=True):
+            st.subheader("🏷️ Répartition du Stock par Type d'Item (%)")
+            
+            # Calcul du nombre total d'articles en stock pour les pourcentages
+            total_items = df_stock_global["quantite"].sum()
+            df_type_stock = df_stock_global.groupby("type")["quantite"].sum().reset_index()
+            df_type_stock["Pourcentage"] = (df_type_stock["quantite"] / total_items) * 100
+            df_type_stock["Groupe"] = "Stock"  # Axe Y unique pour empiler
+            
+            fig_bar_stacked = px.bar(
+                df_type_stock,
+                x="Pourcentage",
+                y="Groupe",
+                color="type",
+                orientation="h",
+                text=df_type_stock.apply(lambda r: f"{r['type']} ({r['Pourcentage']:.1f}%)" if r['Pourcentage'] >= 5 else "", axis=1),
+                color_discrete_sequence=px.colors.qualitative.Pastel
+            )
+            
+            fig_bar_stacked.update_traces(
+                textposition="inside",
+                insidetextanchor="middle",
+                hovertemplate="<b>%{data.name}</b><br>Quantité: %{customdata[0]}<br>Proportion: %{x:.1f}%<extra></extra>",
+                customdata=df_type_stock[["quantite"]]
+            )
+            
+            fig_bar_stacked.update_layout(
+                barmode="stack",
+                height=180,
+                margin=dict(l=10, r=10, t=20, b=10),
+                xaxis=dict(title="Pourcentage du stock total (%)", range=[0, 100], showgrid=True),
+                yaxis=dict(showticklabels=False, title=""),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.8, xanchor="center", x=0.5)
+            )
+            
+            st.plotly_chart(fig_bar_stacked, use_container_width=True)
+    else:
+        st.info("Aucun article en stock pour afficher le graphique de répartition par type.")
+
 else:
     st.info("Votre inventaire est vide. Ajoutez votre premier article depuis la barre latérale !")
