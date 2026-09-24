@@ -8,7 +8,7 @@ from datetime import datetime
 # Page Config
 st.set_page_config(page_title="Pokémon Tracker", page_icon="🎴", layout="wide")
 
-# CSS personnalisé pour l'effet Arc-en-Ciel (> 100%)
+# CSS personnalisé pour l'effet Arc-en-Ciel (> 200%)
 st.markdown("""
 <style>
 @keyframes rainbow_animation {
@@ -188,7 +188,6 @@ if not df.empty:
     # --- 2. GRAPHIQUE D'ÉVOLUTION DE LA PLUS-VALUE PAR VENTE ---
     if not df_vendus_global.empty:
         with st.container(border=True):
-            # Calcul du temps écoulé depuis le 01/01/2025
             date_debut = datetime(2025, 1, 1)
             maintenant = datetime.now()
             
@@ -199,7 +198,6 @@ if not df.empty:
             gain_par_mois = benefice_realise / nb_mois
             gain_par_an = benefice_realise / nb_annees
 
-            # Titre et indicateurs discrets alignés
             col_t1, col_t2 = st.columns([1.5, 1])
             with col_t1:
                 st.subheader("📈 Évolution du Bénéfice Cumulé")
@@ -289,10 +287,17 @@ if not df.empty:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # --- 5. TABLEAU HISTORIQUE DES VENTES ---
-    df_vendu_display = df_filtered[df_filtered["statut"] == "Vendu"]
+    df_vendu_display = df_filtered[df_filtered["statut"] == "Vendu"].copy()
     
     with st.expander(f"📜 Historique des Ventes ({len(df_vendu_display)} article(s) vendu(s))", expanded=False):
         if not df_vendu_display.empty:
+            # Calcul préalable des marges pour identifier le maximum (pour la couronne 👑)
+            df_vendu_display["Marge_Calc"] = df_vendu_display.apply(
+                lambda r: ((r["prixRevente"] - r["prixAchat"]) / r["prixAchat"] * 100) if r["prixAchat"] > 0 else 0.0,
+                axis=1
+            )
+            max_marge_val = df_vendu_display["Marge_Calc"].max()
+
             cols_header_v = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
             headers_v = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Action"]
             for col, h in zip(cols_header_v, headers_v):
@@ -301,12 +306,10 @@ if not df.empty:
             for idx, row in df_vendu_display.iterrows():
                 c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
                 
-                p_achat = row['prixAchat']
-                p_vente = row['prixRevente']
-                if p_achat > 0:
-                    marge_pct = ((p_vente - p_achat) / p_achat) * 100
-                else:
-                    marge_pct = 0.0
+                marge_pct = row["Marge_Calc"]
+                
+                # Vérifie si c'est la marge maximale pour ajouter la couronne
+                couronne_str = " 👑" if (marge_pct == max_marge_val and max_marge_val > 0) else ""
 
                 c_id.write(f"`{row['id']}`")
                 c_type.write(row['type'])
@@ -315,19 +318,21 @@ if not df.empty:
                 c_pa.write(f"{row['prixAchat']:.2f} €")
                 c_pv.write(f"{row['prixRevente']:.2f} €")
                 
-                # Application de la couleur de marge en fonction des 4 tranches et effet arc-en-ciel si > 100%
-                if marge_pct > 100:
-                    c_marge.markdown(f"<span class='rainbow-text'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)
-                elif 75 <= marge_pct <= 100:
-                    c_marge.markdown(f"<span style='color: #b9f6ca; font-weight: bold;'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)  # Vert très clair
+                # Style selon les tranches de marge demandées
+                if marge_pct > 200:
+                    c_marge.markdown(f"<span class='rainbow-text'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)
+                elif 100 <= marge_pct <= 200:
+                    c_marge.markdown(f"<span style='color: #ffd700; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Doré
+                elif 75 <= marge_pct < 100:
+                    c_marge.markdown(f"<span style='color: #69f0ae; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Vert 75-100%
                 elif 50 <= marge_pct < 75:
-                    c_marge.markdown(f"<span style='color: #00e676; font-weight: bold;'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)  # Vert vif
+                    c_marge.markdown(f"<span style='color: #00e676; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Vert 50-75%
                 elif 25 <= marge_pct < 50:
-                    c_marge.markdown(f"<span style='color: #2e7d32; font-weight: bold;'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)  # Vert moyen foncé
+                    c_marge.markdown(f"<span style='color: #2e7d32; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Vert 25-50%
                 elif 0 <= marge_pct < 25:
-                    c_marge.markdown(f"<span style='color: #1e4620; font-weight: bold;'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)  # Vert très foncé
+                    c_marge.markdown(f"<span style='color: #1e4620; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Vert 0-25%
                 else:
-                    c_marge.markdown(f"<span style='color: #ff4d4d; font-weight: bold;'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)  # Rouge si perte
+                    c_marge.markdown(f"<span style='color: #ff4d4d; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Rouge si perte
 
                 c_tv.write(f"{row['Total Vente']:.2f} €")
                 c_stat.markdown("🔴 Vendu")
