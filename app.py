@@ -178,7 +178,7 @@ if not df.empty:
     with col3:
         with st.container(border=True):
             st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Plus-Value Moyenne (%)</p>", unsafe_allow_html=True)
-            couleur_pct = "#2e7d32" if pourcentage_plus_value_moyen >= 0 else "#c62828"
+            couleur_pct = "#00e676" if pourcentage_plus_value_moyen >= 0 else "#ff4d4d"
             st.markdown(f"<h2 style='text-align: center; color: {couleur_pct}; margin-top: 0;'>{pourcentage_plus_value_moyen:.1f} %</h2>", unsafe_allow_html=True)
 
     with col4:
@@ -351,7 +351,7 @@ if not df.empty:
         else:
             st.write("Aucune vente enregistrée pour le moment.")
 
-    # Zone de suppression (Sans ligne de séparation au-dessus)
+    # Zone de suppression
     with st.expander("🗑️ Supprimer un article"):
         article_a_supprimer = st.selectbox(
             "Choisir l'article à supprimer", 
@@ -368,7 +368,7 @@ if not df.empty:
     st.markdown("---")
     col_g1, col_g2 = st.columns(2)
 
-    # GRAPHIQUE 1: Pie Chart (Libellés raccourcis)
+    # GRAPHIQUE 1: Pie Chart (En Stock placé en premier)
     with col_g1:
         with st.container(border=True):
             st.subheader("🥧 Répartition Financière Globale")
@@ -385,6 +385,7 @@ if not df.empty:
             cat_cout = f"<b>Coût d'Achat Vendus ({p_cout:.1f}%)</b>"
             cat_ben = f"<b>Bénéfice Réel ({p_ben:.1f}%)</b>"
 
+            # 'En Stock' placé en 1ère position dans les données
             data_pie = {
                 "Catégorie": [cat_stock, cat_cout, cat_ben],
                 "Montant (€)": [total_investi_stock, cout_achat_vendus, ben_realise_positif]
@@ -401,12 +402,14 @@ if not df.empty:
                     cat_cout: "#00bfff",
                     cat_ben: "#00ffcc"
                 },
-                hole=0
+                hole=0,
+                sort=False  # Maintient l'ordre exact du DataFrame (En Stock en premier)
             )
             fig_pie.update_traces(
                 textposition='inside', 
                 texttemplate='<b>%{value:.2f} €</b>',
-                textfont=dict(size=13)
+                textfont=dict(size=13),
+                direction='clockwise'  # Commence à 12h et s'étale vers la droite
             )
             fig_pie.update_layout(
                 height=350, 
