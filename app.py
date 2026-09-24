@@ -8,6 +8,25 @@ from datetime import datetime
 # Page Config
 st.set_page_config(page_title="Pokémon Tracker", page_icon="🎴", layout="wide")
 
+# CSS personnalisé pour l'effet Arc-en-Ciel (> 100%)
+st.markdown("""
+<style>
+@keyframes rainbow_animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+.rainbow-text {
+    background: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3);
+    background-size: 180% 180%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: rainbow_animation 3s ease infinite;
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Connexion Supabase
 @st.cache_resource
 def init_supabase():
@@ -150,7 +169,7 @@ if not df.empty:
     with col2:
         with st.container(border=True):
             st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Articles en Stock</p>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='text-align: center; color: #00bfff; margin-top: 0;'>{int(nb_articles_stock)}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align: center; color: #ffffff; margin-top: 0;'>{int(nb_articles_stock)}</h2>", unsafe_allow_html=True)
 
     with col3:
         with st.container(border=True):
@@ -257,7 +276,7 @@ if not df.empty:
             c_id.write(f"`{row['id']}`")
             c_type.write(row['type'])
             c_nom.write(row['nom'])
-            c_qte.write(row['quantite'])
+            c_qte.write(str(row['quantite']))
             c_pa.write(f"{row['prixAchat']:.2f} €")
             c_ta.write(f"{row['Total Achat']:.2f} €")
             c_stat.markdown("🟢 En stock")
@@ -292,10 +311,24 @@ if not df.empty:
                 c_id.write(f"`{row['id']}`")
                 c_type.write(row['type'])
                 c_nom.write(row['nom'])
-                c_qte.write(row['quantite'])
+                c_qte.write(str(row['quantite']))
                 c_pa.write(f"{row['prixAchat']:.2f} €")
                 c_pv.write(f"{row['prixRevente']:.2f} €")
-                c_marge.write(f"{marge_pct:+.1f} %")
+                
+                # Application de la couleur de marge en fonction des 4 tranches et effet arc-en-ciel si > 100%
+                if marge_pct > 100:
+                    c_marge.markdown(f"<span class='rainbow-text'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)
+                elif 75 <= marge_pct <= 100:
+                    c_marge.markdown(f"<span style='color: #b9f6ca; font-weight: bold;'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)  # Vert très clair
+                elif 50 <= marge_pct < 75:
+                    c_marge.markdown(f"<span style='color: #00e676; font-weight: bold;'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)  # Vert vif
+                elif 25 <= marge_pct < 50:
+                    c_marge.markdown(f"<span style='color: #2e7d32; font-weight: bold;'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)  # Vert moyen foncé
+                elif 0 <= marge_pct < 25:
+                    c_marge.markdown(f"<span style='color: #1e4620; font-weight: bold;'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)  # Vert très foncé
+                else:
+                    c_marge.markdown(f"<span style='color: #ff4d4d; font-weight: bold;'>{marge_pct:+.1f} %</span>", unsafe_allow_html=True)  # Rouge si perte
+
                 c_tv.write(f"{row['Total Vente']:.2f} €")
                 c_stat.markdown("🔴 Vendu")
                 
@@ -327,7 +360,7 @@ if not df.empty:
     st.markdown("---")
     col_g1, col_g2 = st.columns(2)
 
-    # GRAPHIQUE 1: Pie Chart (Texte et pourcentages en GRAS)
+    # GRAPHIQUE 1: Pie Chart
     with col_g1:
         with st.container(border=True):
             st.subheader("🥧 Répartition Financière Globale")
