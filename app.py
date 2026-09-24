@@ -8,7 +8,7 @@ from datetime import datetime
 # Page Config
 st.set_page_config(page_title="Suivi d'Achat / Vente", page_icon="🎴", layout="wide")
 
-# CSS personnalisé : Effet Arc-en-Ciel (> 200%)
+# CSS personnalisé : Effet Arc-en-Ciel (> 200%) + Centrage vertical/horizontal
 st.markdown("""
 <style>
 @keyframes rainbow_animation {
@@ -23,6 +23,14 @@ st.markdown("""
     -webkit-text-fill-color: transparent;
     animation: rainbow_animation 3s ease infinite;
     font-weight: bold;
+}
+.cell-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    min-height: 45px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -265,7 +273,7 @@ if not df.empty:
 
     st.markdown("---")
 
-    # --- 4. TABLEAU INVENTAIRE (ARTICLES EN STOCK) ---
+    # --- 4. TABLEAU INVENTAIRE (ARTICLES EN STOCK CENTRÉS) ---
     st.subheader("📋 Inventaire (En Stock)")
     df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
 
@@ -273,34 +281,37 @@ if not df.empty:
         cols_header = st.columns([0.6, 0.8, 1.2, 2.4, 0.8, 1.2, 1.2, 1.0, 1.0])
         headers = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Action"]
         for col, h in zip(cols_header, headers):
-            col.markdown(f"**{h}**")
+            col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
         for idx, row in df_stock_display.iterrows():
             c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.6, 0.8, 1.2, 2.4, 0.8, 1.2, 1.2, 1.0, 1.0])
             
-            c_id.write(f"`{row['id']}`")
+            c_id.markdown(f"<div class='cell-center'><code>{row['id']}</code></div>", unsafe_allow_html=True)
             
-            # Affichage de l'image si le lien existe
+            # Visuel centré
             if pd.notna(row.get('image_url')) and str(row['image_url']).strip() != "":
-                c_img.image(row['image_url'], width=45)
+                c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='45' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
             else:
-                c_img.write("🖼️ -")
+                c_img.markdown("<div class='cell-center'>🖼️ -</div>", unsafe_allow_html=True)
 
-            c_type.write(row['type'])
-            c_nom.write(row['nom'])
-            c_qte.write(str(row['quantite']))
-            c_pa.write(f"{row['prixAchat']:.2f} €")
-            c_ta.write(f"{row['Total Achat']:.2f} €")
-            c_stat.markdown("🟢 En stock")
+            c_type.markdown(f"<div class='cell-center'>{row['type']}</div>", unsafe_allow_html=True)
+            c_nom.markdown(f"<div class='cell-center'>{row['nom']}</div>", unsafe_allow_html=True)
+            c_qte.markdown(f"<div class='cell-center'>{row['quantite']}</div>", unsafe_allow_html=True)
+            c_pa.markdown(f"<div class='cell-center'>{row['prixAchat']:.2f} €</div>", unsafe_allow_html=True)
+            c_ta.markdown(f"<div class='cell-center'>{row['Total Achat']:.2f} €</div>", unsafe_allow_html=True)
+            c_stat.markdown("<div class='cell-center'>🟢 En stock</div>", unsafe_allow_html=True)
             
-            if c_act.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
-                modal_vente(row.to_dict())
+            with c_act:
+                st.markdown("<div class='cell-center'>", unsafe_allow_html=True)
+                if st.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
+                    modal_vente(row.to_dict())
+                st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info("Aucun article en stock correspondant à la recherche.")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- 5. TABLEAU HISTORIQUE DES VENTES ---
+    # --- 5. TABLEAU HISTORIQUE DES VENTES (CENTRÉS) ---
     df_vendu_display = df_filtered[df_filtered["statut"] == "Vendu"].copy()
     
     with st.expander(f"📜 Historique des Ventes ({len(df_vendu_display)} article(s) vendu(s))", expanded=False):
@@ -314,7 +325,7 @@ if not df.empty:
             cols_header_v = st.columns([0.6, 0.8, 1.2, 2.1, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
             headers_v = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Action"]
             for col, h in zip(cols_header_v, headers_v):
-                col.markdown(f"**{h}**")
+                col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
             for idx, row in df_vendu_display.iterrows():
                 c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.6, 0.8, 1.2, 2.1, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
@@ -324,62 +335,92 @@ if not df.empty:
                 
                 couronne_str = " 👑" if (p_achat > 0 and marge_pct == max_marge_val and max_marge_val > 0) else ""
 
-                c_id.write(f"`{row['id']}`")
+                c_id.markdown(f"<div class='cell-center'><code>{row['id']}</code></div>", unsafe_allow_html=True)
                 
-                # Visuel
+                # Visuel centré
                 if pd.notna(row.get('image_url')) and str(row['image_url']).strip() != "":
-                    c_img.image(row['image_url'], width=45)
+                    c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='45' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
                 else:
-                    c_img.write("🖼️ -")
+                    c_img.markdown("<div class='cell-center'>🖼️ -</div>", unsafe_allow_html=True)
 
-                c_type.write(row['type'])
-                c_nom.write(row['nom'])
-                c_qte.write(str(row['quantite']))
-                c_pa.write(f"{row['prixAchat']:.2f} €")
-                c_pv.write(f"{row['prixRevente']:.2f} €")
+                c_type.markdown(f"<div class='cell-center'>{row['type']}</div>", unsafe_allow_html=True)
+                c_nom.markdown(f"<div class='cell-center'>{row['nom']}</div>", unsafe_allow_html=True)
+                c_qte.markdown(f"<div class='cell-center'>{row['quantite']}</div>", unsafe_allow_html=True)
+                c_pa.markdown(f"<div class='cell-center'>{row['prixAchat']:.2f} €</div>", unsafe_allow_html=True)
+                c_pv.markdown(f"<div class='cell-center'>{row['prixRevente']:.2f} €</div>", unsafe_allow_html=True)
                 
                 if p_achat == 0:
-                    c_marge.markdown("<span style='color: #aaa; font-style: italic;'>N/A</span>", unsafe_allow_html=True)
+                    c_marge.markdown("<div class='cell-center'><span style='color: #aaa; font-style: italic;'>N/A</span></div>", unsafe_allow_html=True)
                 elif marge_pct > 200:
-                    c_marge.markdown(f"<span class='rainbow-text'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
+                    c_marge.markdown(f"<div class='cell-center'><span class='rainbow-text'>{marge_pct:+.1f} %</span>{couronne_str}</div>", unsafe_allow_html=True)
                 elif 100 <= marge_pct <= 200:
-                    c_marge.markdown(f"<span style='color: #ffd700; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
+                    c_marge.markdown(f"<div class='cell-center'><span style='color: #ffd700; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}</div>", unsafe_allow_html=True)
                 elif 75 <= marge_pct < 100:
-                    c_marge.markdown(f"<span style='color: #69f0ae; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
+                    c_marge.markdown(f"<div class='cell-center'><span style='color: #69f0ae; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}</div>", unsafe_allow_html=True)
                 elif 50 <= marge_pct < 75:
-                    c_marge.markdown(f"<span style='color: #00e676; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
+                    c_marge.markdown(f"<div class='cell-center'><span style='color: #00e676; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}</div>", unsafe_allow_html=True)
                 elif 25 <= marge_pct < 50:
-                    c_marge.markdown(f"<span style='color: #2e7d32; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
+                    c_marge.markdown(f"<div class='cell-center'><span style='color: #2e7d32; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}</div>", unsafe_allow_html=True)
                 elif 0 <= marge_pct < 25:
-                    c_marge.markdown(f"<span style='color: #1e4620; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
+                    c_marge.markdown(f"<div class='cell-center'><span style='color: #1e4620; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}</div>", unsafe_allow_html=True)
                 else:
-                    c_marge.markdown(f"<span style='color: #ff4d4d; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
+                    c_marge.markdown(f"<div class='cell-center'><span style='color: #ff4d4d; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}</div>", unsafe_allow_html=True)
 
-                c_tv.write(f"{row['Total Vente']:.2f} €")
-                c_stat.markdown("🔴 Vendu")
+                c_tv.markdown(f"<div class='cell-center'>{row['Total Vente']:.2f} €</div>", unsafe_allow_html=True)
+                c_stat.markdown("<div class='cell-center'>🔴 Vendu</div>", unsafe_allow_html=True)
                 
-                if c_act.button("↩️", key=f"undo_btn_{row['id']}", help="Annuler la vente et remettre en stock"):
-                    supabase.table("inventaire").update({
-                        "statut": "En stock",
-                        "prixRevente": 0.0
-                    }).eq("id", row['id']).execute()
-                    st.success("Article remis en stock !")
-                    st.rerun()
+                with c_act:
+                    st.markdown("<div class='cell-center'>", unsafe_allow_html=True)
+                    if st.button("↩️", key=f"undo_btn_{row['id']}", help="Annuler la vente et remettre en stock"):
+                        supabase.table("inventaire").update({
+                            "statut": "En stock",
+                            "prixRevente": 0.0
+                        }).eq("id", row['id']).execute()
+                        st.success("Article remis en stock !")
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.write("Aucune vente enregistrée pour le moment.")
 
-    # Zone de suppression
-    with st.expander("🗑️ Supprimer un article"):
-        article_a_supprimer = st.selectbox(
-            "Choisir l'article à supprimer", 
-            options=df["id"].tolist(), 
-            format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]}",
-            key="select_delete"
-        )
-        if st.button("Confirmer la suppression"):
-            supabase.table("inventaire").delete().eq("id", article_a_supprimer).execute()
-            st.warning("Article supprimé !")
-            st.rerun()
+    # --- ZONE D'ÉDITION DES VISUELS ET SUPPRESSION ---
+    col_e1, col_e2 = st.columns(2)
+    
+    with col_e1:
+        with st.expander("🖼️ Modifier le visuel d'un article"):
+            article_a_editer = st.selectbox(
+                "Choisir l'article", 
+                options=df["id"].tolist(), 
+                format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]} ({df[df['id']==x]['statut'].values[0]})",
+                key="select_edit_img"
+            )
+            item_edit = df[df["id"] == article_a_editer].iloc[0]
+            
+            valeur_url_actuelle = str(item_edit.get("image_url")) if pd.notna(item_edit.get("image_url")) else ""
+            
+            if valeur_url_actuelle:
+                st.image(valeur_url_actuelle, caption="Visuel actuel", width=100)
+            
+            nouvel_url = st.text_input("Lien de l'image (URL)", value=valeur_url_actuelle, key="input_edit_img")
+            
+            if st.button("Mettre à jour le visuel"):
+                supabase.table("inventaire").update({
+                    "image_url": nouvel_url if nouvel_url.strip() else None
+                }).eq("id", article_a_editer).execute()
+                st.success("Visuel mis à jour !")
+                st.rerun()
+
+    with col_e2:
+        with st.expander("🗑️ Supprimer un article"):
+            article_a_supprimer = st.selectbox(
+                "Choisir l'article à supprimer", 
+                options=df["id"].tolist(), 
+                format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]}",
+                key="select_delete"
+            )
+            if st.button("Confirmer la suppression"):
+                supabase.table("inventaire").delete().eq("id", article_a_supprimer).execute()
+                st.warning("Article supprimé !")
+                st.rerun()
 
     # --- 6. GRAPHIQUES DU BAS ---
     st.markdown("---")
