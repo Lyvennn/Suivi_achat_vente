@@ -49,8 +49,7 @@ with st.sidebar:
         statut = st.selectbox("Statut", ["En stock", "Vendu"])
         
         prix_a = st.number_input("Prix d'achat unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 45.00")
-        label_prix_v = "Prix de vente estimé (€)" if statut == "En stock" else "Prix de vente unitaire réel (€)"
-        prix_v = st.number_input(label_prix_v, min_value=0.0, value=None, step=1.0, placeholder="ex: 60.00 (optionnel)")
+        prix_v = st.number_input("Prix de vente unitaire réel (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 60.00 (si déjà vendu)")
         
         submitted = st.form_submit_button("Enregistrer")
         if submitted and nom:
@@ -247,27 +246,19 @@ if not df.empty:
     df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
 
     if not df_stock_display.empty:
-        cols_header = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.4, 1.2, 1.2, 1.0, 1.0])
-        headers = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente (est.)", "Tot. Achat", "Tot. Est.", "Statut", "Action"]
+        cols_header = st.columns([0.6, 1.2, 2.8, 0.8, 1.2, 1.2, 1.0, 1.0])
+        headers = ["#", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Action"]
         for col, h in zip(cols_header, headers):
             col.markdown(f"**{h}**")
 
         for idx, row in df_stock_display.iterrows():
-            c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_ta, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.4, 1.2, 1.2, 1.0, 1.0])
+            c_id, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.6, 1.2, 2.8, 0.8, 1.2, 1.2, 1.0, 1.0])
             
             c_id.write(f"`{row['id']}`")
             c_type.write(row['type'])
             c_nom.write(row['nom'])
             c_qte.write(row['quantite'])
             c_pa.write(f"{row['prixAchat']:.2f} €")
-            
-            if row['prixRevente'] > 0:
-                c_pv.markdown(f"<span style='color: #888; font-style: italic;'>{row['prixRevente']:.2f} € (est.)</span>", unsafe_allow_html=True)
-                c_tv.markdown(f"<span style='color: #888; font-style: italic;'>{row['Total Vente']:.2f} €</span>", unsafe_allow_html=True)
-            else:
-                c_pv.write("-")
-                c_tv.write("-")
-
             c_ta.write(f"{row['Total Achat']:.2f} €")
             c_stat.markdown("🟢 En stock")
             
@@ -345,7 +336,6 @@ if not df.empty:
             ben_realise_positif = max(benefice_realise, 0.0)
             total_global_pie = total_investi_stock + cout_achat_vendus + ben_realise_positif
             
-            # % pour la légende en gras
             p_stock = (total_investi_stock / total_global_pie * 100) if total_global_pie > 0 else 0
             p_cout = (cout_achat_vendus / total_global_pie * 100) if total_global_pie > 0 else 0
             p_ben = (ben_realise_positif / total_global_pie * 100) if total_global_pie > 0 else 0
@@ -372,7 +362,6 @@ if not df.empty:
                 },
                 hole=0
             )
-            # Montants sur les parts en gras
             fig_pie.update_traces(
                 textposition='inside', 
                 texttemplate='<b>%{value:.2f} €</b>',
