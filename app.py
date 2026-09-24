@@ -66,6 +66,51 @@ response = supabase.table("inventaire").select("*").execute()
 data = response.data
 df = pd.DataFrame(data)
 
+# Fenêtre modale (Pop-up) pour la vente
+@st.dialog("🛒 Valider la vente d'un article")
+def modal_vente(item):
+    st.write(f"**Produit :** {item['nom']}")
+    st.write(f"**Quantité actuellement en stock/enregistrée :** {item['quantite']}")
+    
+    with st.form("form_modal_vente"):
+        qte_vendue = st.number_input("Quantité vendue", min_value=1, max_value=int(item['quantite']), value=int(item['quantite']))
+        prix_vente_unitaire = st.number_input(
+            "Prix de vente unitaire (€)", 
+            min_value=0.0, 
+            value=float(item['prixRevente']) if item['prixRevente'] > 0 else None, 
+            placeholder="ex: 60.00",
+            step=1.0
+        )
+        
+        valider = st.form_submit_button("Confirmer la vente")
+        if valider:
+            p_vente = float(prix_vente_unitaire) if prix_vente_unitaire is not None else 0.0
+            
+            # Si toute la quantité est vendue
+            if qte_vendue == item['quantite']:
+                supabase.table("inventaire").update({
+                    "statut": "Vendu",
+                    "prixRevente": p_vente
+                }).eq("id", item['id']).execute()
+            else:
+                # Si vente partielle : on réduit la quantité du stock et on crée une ligne "Vendu"
+                nouvelle_qte_stock = item['quantite'] - qte_vendue
+                supabase.table("inventaire").update({"quantite": nouvelle_qte_stock}).eq("id", item['id']).execute()
+                
+                # Nouvelle ligne pour les articles vendus
+                article_vendu = {
+                    "type": item['type'],
+                    "nom": item['nom'],
+                    "quantite": int(qte_vendue),
+                    "prixAchat": float(item['prixAchat']),
+                    "prixRevente": p_vente,
+                    "statut": "Vendu"
+                }
+                supabase.table("inventaire").insert(article_vendu).execute()
+
+            st.success("Vente enregistrée !")
+            st.rerun()
+
 if not df.empty:
     # Calculs de base
     df["Total Achat"] = df["prixAchat"] * df["quantite"]
@@ -106,41 +151,37 @@ if not df.empty:
     col3.metric("Bénéfice Réel (Vendus)", f"{benefice_realise:.2f} €", delta=f"{benefice_realise:.2f} €")
     col4.metric("Articles affichés", int(df_filtered["quantite"].sum()))
 
-    # --- TABLEAU INTERACTIF STYLE EXCEL ---
+    st.markdown("---")
     st.subheader("📋 Inventaire")
-    st.caption("💡 Tu peux modifier le statut ou le prix de vente directement dans les cases ci-dessous :")
-    
-    # On masque la colonne ID d'origine pour en faire une colonne très compacte "#"
-    df_filtered["#"] = df_filtered["id"]
-    
-    edited_df = st.data_editor(
-        df_filtered[["#", "type", "nom", "quantite", "prixAchat", "prixRevente", "Total Achat", "Total Vente", "statut"]],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "#": st.column_config.NumberColumn("#", width="small", disabled=True),
-            "type": st.column_config.TextColumn("Type", disabled=True),
-            "nom": st.column_config.TextColumn("Nom", disabled=True),
-            "quantite": st.column_config.NumberColumn("Qté", disabled=True, width="small"),
-            "prixAchat": st.column_config.NumberColumn("Prix Achat (€)", disabled=True, format="%.2f €"),
-            "Total Achat": st.column_config.NumberColumn("Total Achat", disabled=True, format="%.2f €"),
-            "Total Vente": st.column_config.NumberColumn("Total Vente", disabled=True, format="%.2f €"),
-            # Colonnes modifiables en direct
-            "prixRevente": st.column_config.NumberColumn("Prix Vente Unitaire (€)", format="%.2f €", min_value=0.0),
-            "statut": st.column_config.SelectboxColumn("Statut", options=["En stock", "Vendu"], required=True)
-        }
-    )
 
-    # Bouton pour sauvegarder les modifications en direct
-    if st.button("💾 Enregistrer les modifications du tableau"):
-        for index, row in edited_df.iterrows():
-            item_id = int(row["#"])
-            supabase.table("inventaire").update({
-                "statut": row["statut"],
-                "prixRevente": float(row["prixRevente"]) if pd.notna(row["prixRevente"]) else 0.0
-            }).eq("id", item_id).execute()
-        st.success("Modifications enregistrées sur Supabase !")
-        st.rerun()
+    # En-tête du tableau personnalisé
+    cols_header = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+    headers = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Tot. Achat", "Tot. Vente", "Statut", "Action"]
+    for col, h in zip(cols_header, headers):
+        col.markdown(f"**{h}**")
+
+    # Affichage ligne par ligne avec bouton d'action direct
+    for idx, row in df_filtered.iterrows():
+        c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_ta, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+        
+        c_id.write(f"`{row['id']}`")
+        c_type.write(row['type'])
+        c_nom.write(row['nom'])
+        c_qte.write(row['quantite'])
+        c_pa.write(f"{row['prixAchat']:.2f} €")
+        c_pv.write(f"{row['prixRevente']:.2f} €")
+        c_ta.write(f"{row['Total Achat']:.2f} €")
+        c_tv.write(f"{row['Total Vente']:.2f} €")
+        
+        # Badge de statut
+        if row['statut'] == "En stock":
+            c_stat.markdown("🟢 En stock")
+        else:
+            c_stat.markdown("🔴 Vendu")
+            
+        # Bouton d'action caddie
+        if c_act.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
+            modal_vente(row.to_dict())
 
     # Zone de suppression
     st.markdown("---")
@@ -166,4 +207,4 @@ if not df.empty:
         st.plotly_chart(fig_statut, use_container_width=True)
 
 else:
-    st.info("Votre inventaire me parait vide. Ajoutez votre premier article depuis la barre latérale !")
+    st.info("Votre inventaire est vide. Ajoutez votre premier article depuis la barre latérale !")
