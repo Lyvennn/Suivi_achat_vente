@@ -113,30 +113,10 @@ if not df.empty:
     # Calculs de base
     df["Total Achat"] = df["prixAchat"] * df["quantite"]
     df["Total Vente"] = df["prixRevente"] * df["quantite"]
-    
-    # --- BARRE DE RECHERCHE ET FILTRES ---
-    st.subheader("🔍 Recherche & Filtres")
-    col_f1, col_f2 = st.columns(2)
-    
-    with col_f1:
-        recherche_texte = st.text_input("🔎 Rechercher par nom (ex: Charizard, 151...)", "")
-    with col_f2:
-        filtre_types = st.multiselect("🏷️ Filtrer par Type (ex: ETB)", options=df["type"].unique(), default=[])
-
-    # Application des filtres
-    df_filtered = df.copy()
-    
-    if recherche_texte:
-        df_filtered = df_filtered[df_filtered["nom"].str.contains(recherche_texte, case=False, na=False)]
-        
-    if filtre_types:
-        df_filtered = df_filtered[df_filtered["type"].isin(filtre_types)]
-
-    st.markdown("---")
 
     # --- CALCULS POUR LES 4 METRIQUES DEMANDÉES ---
-    df_stock = df_filtered[df_filtered["statut"] == "En stock"]
-    df_vendus = df_filtered[df_filtered["statut"] == "Vendu"]
+    df_stock = df[df["statut"] == "En stock"]
+    df_vendus = df[df["statut"] == "Vendu"]
     
     # 1. Total investi uniquement dans les items non vendus
     total_investi_stock = df_stock["Total Achat"].sum()
@@ -155,7 +135,7 @@ if not df.empty:
     else:
         pourcentage_plus_value = 0.0
 
-    # --- AFFICHAGE DES 4 CASES EN HAUT ---
+    # --- 1. LES 4 CASES EN HAUT ---
     col1, col2, col3, col4 = st.columns(4)
     
     col1.metric("Total Investi (En Stock)", f"{total_investi_stock:.2f} €")
@@ -163,7 +143,31 @@ if not df.empty:
     col3.metric("Marge / Plus-value (%)", f"{pourcentage_plus_value:.1f} %", delta=f"{pourcentage_plus_value:.1f} %")
     col4.metric("Bénéfice Réel (€)", f"{benefice_realise:.2f} €", delta=f"{benefice_realise:.2f} €")
 
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- 2. LES FILTRES EN CASES ISOLÉES (Juste en dessous des métriques) ---
+    col_f1, col_f2 = st.columns(2)
+    
+    with col_f1:
+        with st.container(border=True):
+            recherche_texte = st.text_input("🔎 Rechercher par nom (ex: Charizard, 151...)", "")
+            
+    with col_f2:
+        with st.container(border=True):
+            filtre_types = st.multiselect("🏷️ Filtrer par Type (ex: ETB)", options=df["type"].unique(), default=[])
+
+    # Application des filtres sur les données de l'inventaire
+    df_filtered = df.copy()
+    
+    if recherche_texte:
+        df_filtered = df_filtered[df_filtered["nom"].str.contains(recherche_texte, case=False, na=False)]
+        
+    if filtre_types:
+        df_filtered = df_filtered[df_filtered["type"].isin(filtre_types)]
+
     st.markdown("---")
+
+    # --- 3. L'INVENTAIRE ---
     st.subheader("📋 Inventaire")
 
     # En-tête du tableau
