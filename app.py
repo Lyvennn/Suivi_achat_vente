@@ -116,7 +116,7 @@ if not df.empty:
 
     # --- CALCULS POUR LES METRIQUES ---
     df_stock = df[df["statut"] == "En stock"]
-    df_vendus = df[df["statut"] == "Vendu"]
+    df_vendus = df[df["statut"] == "Vendu"].copy()
     
     total_investi_stock = df_stock["Total Achat"].sum()
     nb_articles_stock = df_stock["quantite"].sum()
@@ -130,7 +130,7 @@ if not df.empty:
     else:
         pourcentage_plus_value = 0.0
 
-    # --- 1. LES 4 CASES DE STATISTIQUES STYLE CARTE ---
+    # --- 1. LES 4 CASES DE STATISTIQUES ---
     st.markdown("<h3 style='text-align: center;'>📊 Statistiques Générales</h3>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
     
@@ -147,18 +147,53 @@ if not df.empty:
     with col3:
         with st.container(border=True):
             st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Plus-Value (%)</p>", unsafe_allow_html=True)
-            couleur_pct = "#00ffcc" if pourcentage_plus_value >= 0 else "#ff4d4d"
+            couleur_pct = "#2e7d32" if pourcentage_plus_value >= 0 else "#c62828"
             st.markdown(f"<h2 style='text-align: center; color: {couleur_pct}; margin-top: 0;'>{pourcentage_plus_value:.1f} %</h2>", unsafe_allow_html=True)
 
     with col4:
         with st.container(border=True):
             st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Bénéfice Réel (€)</p>", unsafe_allow_html=True)
-            couleur_ben = "#00ffcc" if benefice_realise >= 0 else "#ff4d4d"
+            couleur_ben = "#1b5e20" if benefice_realise >= 0 else "#c62828"
             st.markdown(f"<h2 style='text-align: center; color: {couleur_ben}; margin-top: 0;'>{benefice_realise:.2f} €</h2>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- 2. FILTRES EN CASES ISOLÉES ---
+    # --- 2. GRAPHIQUE D'ÉVOLUTION DE LA PLUS-VALUE PAR VENTE ---
+    if not df_vendus.empty:
+        with st.container(border=True):
+            st.subheader("📈 Évolution du Bénéfice Cumulé selon les Ventes")
+            
+            # Calcul du bénéfice unitaire par ligne vendue
+            df_vendus["Benefice_Unitaire"] = df_vendus["Total Vente"] - df_vendus["Total Achat"]
+            
+            # Tri par ID (ordre chronologique de saisie/vente)
+            df_vendus = df_vendus.sort_values(by="id").reset_index(drop=True)
+            df_vendus["N_Vente"] = df_vendus.index + 1
+            
+            # Bénéfice cumulé
+            df_vendus["Benefice_Cumule"] = df_vendus["Benefice_Unitaire"].cumsum()
+            
+            # Ajout d'un point 0 initial pour un beau tracé
+            df_chart = pd.concat([
+                pd.DataFrame([{"N_Vente": 0, "Benefice_Cumule": 0.0, "nom": "Départ"}]),
+                df_vendus[["N_Vente", "Benefice_Cumule", "nom"]]
+            ], ignore_index=True)
+
+            fig_evo = px.line(
+                df_chart, 
+                x="N_Vente", 
+                y="Benefice_Cumule", 
+                markers=True,
+                hover_data=["nom"],
+                labels={"N_Vente": "Nombre de ventes effectuées", "Benefice_Cumule": "Bénéfice Cumulé (€)"}
+            )
+            fig_evo.update_traces(line_color="#1b5e20", line_width=3, marker=dict(size=8))
+            fig_evo.update_layout(height=300, margin=dict(l=20, r=20, t=30, b=20))
+            st.plotly_chart(fig_evo, use_container_width=True)
+            
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- 3. FILTRES EN CASES ISOLÉES ---
     col_f1, col_f2 = st.columns(2)
     
     with col_f1:
@@ -180,7 +215,7 @@ if not df.empty:
 
     st.markdown("---")
 
-    # --- 3. INVENTAIRE ---
+    # --- 4. INVENTAIRE ---
     st.subheader("📋 Inventaire")
 
     # En-tête du tableau
@@ -208,7 +243,6 @@ if not df.empty:
                 modal_vente(row.to_dict())
         else:
             c_stat.markdown("🔴 Vendu")
-            # Bouton pour réinitialiser la vente et remettre en stock
             if c_act.button("↩️", key=f"undo_btn_{row['id']}", help="Annuler la vente et remettre en stock"):
                 supabase.table("inventaire").update({
                     "statut": "En stock",
@@ -231,7 +265,7 @@ if not df.empty:
             st.warning("Article supprimé !")
             st.rerun()
 
-    # Graphiques
+    # Graphiques complémentaires en bas
     col_g1, col_g2 = st.columns(2)
     with col_g1:
         fig_type = px.pie(df_filtered, values="quantite", names="type", title="Répartition par Type")
