@@ -69,6 +69,7 @@ with st.sidebar:
         
         prix_a = st.number_input("Prix d'achat unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 45.00 (ou 0)")
         prix_v = st.number_input("Prix de vente unitaire réel (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 60.00 (si déjà vendu)")
+        img_url = st.text_input("Lien de l'image (URL optionnel)", placeholder="https://...")
         
         submitted = st.form_submit_button("Enregistrer")
         if submitted and nom:
@@ -78,7 +79,8 @@ with st.sidebar:
                 "quantite": int(qte),
                 "prixAchat": float(prix_a) if prix_a is not None else 0.0,
                 "prixRevente": float(prix_v) if prix_v is not None else 0.0,
-                "statut": statut
+                "statut": statut,
+                "image_url": img_url if img_url else None
             }
             supabase.table("inventaire").insert(nouvel_article).execute()
             st.success("Article ajouté !")
@@ -124,7 +126,8 @@ def modal_vente(item):
                     "quantite": int(qte_vendue),
                     "prixAchat": float(item['prixAchat']),
                     "prixRevente": p_vente,
-                    "statut": "Vendu"
+                    "statut": "Vendu",
+                    "image_url": item.get('image_url')
                 }
                 supabase.table("inventaire").insert(article_vendu).execute()
 
@@ -267,15 +270,22 @@ if not df.empty:
     df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
 
     if not df_stock_display.empty:
-        cols_header = st.columns([0.6, 1.2, 2.8, 0.8, 1.2, 1.2, 1.0, 1.0])
-        headers = ["#", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Action"]
+        cols_header = st.columns([0.6, 0.8, 1.2, 2.4, 0.8, 1.2, 1.2, 1.0, 1.0])
+        headers = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Action"]
         for col, h in zip(cols_header, headers):
             col.markdown(f"**{h}**")
 
         for idx, row in df_stock_display.iterrows():
-            c_id, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.6, 1.2, 2.8, 0.8, 1.2, 1.2, 1.0, 1.0])
+            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.6, 0.8, 1.2, 2.4, 0.8, 1.2, 1.2, 1.0, 1.0])
             
             c_id.write(f"`{row['id']}`")
+            
+            # Affichage de l'image si le lien existe
+            if pd.notna(row.get('image_url')) and str(row['image_url']).strip() != "":
+                c_img.image(row['image_url'], width=45)
+            else:
+                c_img.write("🖼️ -")
+
             c_type.write(row['type'])
             c_nom.write(row['nom'])
             c_qte.write(str(row['quantite']))
@@ -301,13 +311,13 @@ if not df.empty:
             )
             max_marge_val = df_vendu_display["Marge_Calc"].max()
 
-            cols_header_v = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
-            headers_v = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Action"]
+            cols_header_v = st.columns([0.6, 0.8, 1.2, 2.1, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+            headers_v = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Action"]
             for col, h in zip(cols_header_v, headers_v):
                 col.markdown(f"**{h}**")
 
             for idx, row in df_vendu_display.iterrows():
-                c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.6, 0.8, 1.2, 2.1, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
                 
                 p_achat = row['prixAchat']
                 marge_pct = row["Marge_Calc"]
@@ -315,6 +325,13 @@ if not df.empty:
                 couronne_str = " 👑" if (p_achat > 0 and marge_pct == max_marge_val and max_marge_val > 0) else ""
 
                 c_id.write(f"`{row['id']}`")
+                
+                # Visuel
+                if pd.notna(row.get('image_url')) and str(row['image_url']).strip() != "":
+                    c_img.image(row['image_url'], width=45)
+                else:
+                    c_img.write("🖼️ -")
+
                 c_type.write(row['type'])
                 c_nom.write(row['nom'])
                 c_qte.write(str(row['quantite']))
@@ -368,7 +385,7 @@ if not df.empty:
     st.markdown("---")
     col_g1, col_g2 = st.columns(2)
 
-    # GRAPHIQUE 1: Pie Chart (Ordre conservé sans erreur)
+    # GRAPHIQUE 1: Pie Chart
     with col_g1:
         with st.container(border=True):
             st.subheader("🥧 Répartition Financière Globale")
@@ -403,7 +420,6 @@ if not df.empty:
                 },
                 hole=0
             )
-            # update_traces avec sort=False pour maintenir la part "En stock" à droite
             fig_pie.update_traces(
                 textposition='inside', 
                 texttemplate='<b>%{value:.2f} €</b>',
