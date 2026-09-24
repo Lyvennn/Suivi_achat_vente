@@ -73,11 +73,37 @@ if not st.session_state["authenticated"]:
 st.markdown("<h1 style='text-align: center;'>🎴 Suivi d'Achat / Vente</h1>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
+# Liste des types d'articles personnalisée
+TYPES_ARTICLES = [
+    "Display Booster",
+    "Display Mini Tins",
+    "Display Bundle",
+    "UPC",
+    "SPC",
+    "ETB",
+    "Bundle",
+    "Mini Tins",
+    "Pokébox",
+    "Tripack",
+    "Duopack",
+    "Artset Mini Tins",
+    "Artset Boosters",
+    "Booster",
+    "Coffret Classeur",
+    "Coffret Poster",
+    "Coffret Sticker",
+    "Coffret",
+    "Carte Raw",
+    "Carte Gradée",
+    "Lot",
+    "Autres"
+]
+
 # Formulaire d'ajout dans la barre latérale
 with st.sidebar:
     st.header("➕ Ajouter un article")
     with st.form("add_form", clear_on_submit=True):
-        type_art = st.selectbox("Type", ["Boîte", "ETB", "Display", "Carte à l'unité", "Coffret", "Autre"])
+        type_art = st.selectbox("Type", TYPES_ARTICLES)
         nom = st.text_input("Nom de l'article")
         qte = st.number_input("Quantité", min_value=1, value=1)
         
@@ -286,7 +312,6 @@ if not df.empty:
     df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
 
     if not df_stock_display.empty:
-        # Poids de la colonne Action ajusté à 0.8
         cols_header = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 0.8])
         headers = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Action"]
         for col, h in zip(cols_header, headers):
