@@ -242,13 +242,12 @@ if not df.empty:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- 5. TABLEAU HISTORIQUE DES VENTES (AVEC POURCENTAGE DE PLUS-VALUE) ---
+    # --- 5. TABLEAU HISTORIQUE DES VENTES ---
     df_vendu_display = df_filtered[df_filtered["statut"] == "Vendu"]
     
     with st.expander(f"📜 Historique des Ventes ({len(df_vendu_display)} article(s) vendu(s))", expanded=False):
         if not df_vendu_display.empty:
             cols_header_v = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
-            # Remplacement de Tot. Achat par Marge (%)
             headers_v = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Action"]
             for col, h in zip(cols_header_v, headers_v):
                 col.markdown(f"**{h}**")
@@ -256,7 +255,6 @@ if not df.empty:
             for idx, row in df_vendu_display.iterrows():
                 c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
                 
-                # Calcul du pourcentage de plus-value par article vendu
                 p_achat = row['prixAchat']
                 p_vente = row['prixRevente']
                 if p_achat > 0:
@@ -270,7 +268,7 @@ if not df.empty:
                 c_qte.write(row['quantite'])
                 c_pa.write(f"{row['prixAchat']:.2f} €")
                 c_pv.write(f"{row['prixRevente']:.2f} €")
-                c_marge.write(f"{marge_pct:+.1f} %")  # Affichage de la plus-value en %
+                c_marge.write(f"{marge_pct:+.1f} %")
                 c_tv.write(f"{row['Total Vente']:.2f} €")
                 c_stat.markdown("🔴 Vendu")
                 
@@ -302,7 +300,7 @@ if not df.empty:
     st.markdown("---")
     col_g1, col_g2 = st.columns(2)
 
-    # GRAPHIQUE 1: Pie Chart sans trou (hole=0)
+    # GRAPHIQUE 1: Pie Chart sans trou
     with col_g1:
         with st.container(border=True):
             st.subheader("🥧 Répartition Financière Globale")
@@ -326,45 +324,57 @@ if not df.empty:
                     "Coût d'Achat des Produits Vendus": "#00bfff",
                     "Bénéfice Réel": "#00ffcc"
                 },
-                hole=0  # Pie chart complet (sans trou au milieu)
+                hole=0
             )
             fig_pie.update_traces(textposition='inside', textinfo='percent+label')
             fig_pie.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10))
             st.plotly_chart(fig_pie, use_container_width=True)
 
-    # GRAPHIQUE 2: Courbes Comparatives
+    # GRAPHIQUE 2: Courbes Comparatives CUMULÉES
     with col_g2:
         with st.container(border=True):
-            st.subheader("📊 Comparatif Prix d'Achat vs Prix de Vente")
+            st.subheader("📊 Comparatif Cumulé : Achats vs Ventes")
             
             if not df_vendus_global.empty:
                 df_curve = df_vendus_global.sort_values(by="id").reset_index(drop=True)
                 df_curve["N_Vente"] = df_curve.index + 1
 
+                # Calcul des montants cumulés au fil des ventes
+                df_curve["Total_Achat_Cumule"] = df_curve["Total Achat"].cumsum()
+                df_curve["Total_Vente_Cumule"] = df_curve["Total Vente"].cumsum()
+
+                # Ajout du point zéro de départ
+                df_curve_chart = pd.concat([
+                    pd.DataFrame([{"N_Vente": 0, "Total_Achat_Cumule": 0.0, "Total_Vente_Cumule": 0.0, "nom": "Départ"}]),
+                    df_curve[["N_Vente", "Total_Achat_Cumule", "Total_Vente_Cumule", "nom"]]
+                ], ignore_index=True)
+
                 fig_curve = go.Figure()
                 
+                # Courbe Achats Cumulés
                 fig_curve.add_trace(go.Scatter(
-                    x=df_curve["N_Vente"],
-                    y=df_curve["Total Achat"],
+                    x=df_curve_chart["N_Vente"],
+                    y=df_curve_chart["Total_Achat_Cumule"],
                     mode='lines+markers',
-                    name="Prix d'Achat (€)",
+                    name="Achats Cumulés (€)",
                     line=dict(color='#00bfff', width=3),
                     marker=dict(size=8),
-                    text=df_curve["nom"]
+                    text=df_curve_chart["nom"]
                 ))
                 
+                # Courbe Ventes Cumulées
                 fig_curve.add_trace(go.Scatter(
-                    x=df_curve["N_Vente"],
-                    y=df_curve["Total Vente"],
+                    x=df_curve_chart["N_Vente"],
+                    y=df_curve_chart["Total_Vente_Cumule"],
                     mode='lines+markers',
-                    name="Prix de Vente (€)",
+                    name="Ventes Cumulées (€)",
                     line=dict(color='#00ffcc', width=3),
                     marker=dict(size=8),
-                    text=df_curve["nom"]
+                    text=df_curve_chart["nom"]
                 ))
 
-                fig_curve.update_xaxes(dtick=1, tick0=1, title="Nombre de ventes effectuées")
-                fig_curve.update_yaxes(title="Montant (€)")
+                fig_curve.update_xaxes(dtick=1, tick0=0, title="Nombre de ventes effectuées")
+                fig_curve.update_yaxes(title="Montant Cumulé (€)")
                 fig_curve.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
                 st.plotly_chart(fig_curve, use_container_width=True)
             else:
