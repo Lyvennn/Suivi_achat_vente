@@ -70,7 +70,7 @@ if not df.empty:
     df["Total Achat"] = df["prixAchat"] * df["quantite"]
     df["Total Vente"] = df["prixRevente"] * df["quantite"]
     
-    # --- BARRE DE RECHERCHE ET FILTRES (Au-dessus du tableau) ---
+    # --- BARRE DE RECHERCHE ET FILTRES ---
     st.subheader("🔍 Recherche & Filtres")
     col_f1, col_f2 = st.columns(2)
     
@@ -90,15 +90,22 @@ if not df.empty:
 
     st.markdown("---")
 
-    # Indicateurs (KPIs) basés sur l'affichage
+    # --- CALCUL DÉTAILLÉ DU BÉNÉFICE RÉALISÉ ---
+    # On isole uniquement les articles vendus
+    df_vendus = df_filtered[df_filtered["statut"] == "Vendu"]
+    total_vente_realisee = df_vendus["Total Vente"].sum()
+    total_achat_vendus = df_vendus["Total Achat"].sum()
+    
+    # Bénéfice net sur ce qui est vendu (Prix vente des vendus - Prix d'achat initial des vendus)
+    benefice_realise = total_vente_realisee - total_achat_vendus
+
+    # Indicateurs (KPIs)
     col1, col2, col3, col4 = st.columns(4)
     total_investi = df_filtered["Total Achat"].sum()
-    total_revente = df_filtered["Total Vente"].sum()
-    benefice_potentiel = total_revente - total_investi
     
-    col1.metric("Total Investi", f"{total_investi:.2f} €")
-    col2.metric("Valeur Estimée / Réelle", f"{total_revente:.2f} €")
-    col3.metric("Bénéfice / Plus-value", f"{benefice_potentiel:.2f} €", delta=f"{benefice_potentiel:.2f} €")
+    col1.metric("Total Investi (Global)", f"{total_investi:.2f} €")
+    col2.metric("Chiffre d'Affaires (Vendus)", f"{total_vente_realisee:.2f} €")
+    col3.metric("Bénéfice Réel (Vendus)", f"{benefice_realise:.2f} €", delta=f"{benefice_realise:.2f} €")
     col4.metric("Articles affichés", int(df_filtered["quantite"].sum()))
 
     # Affichage du tableau
