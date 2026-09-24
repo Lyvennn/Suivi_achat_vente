@@ -6,7 +6,7 @@ from supabase import create_client
 from datetime import datetime
 
 # Page Config
-st.set_page_config(page_title="Pokémon Tracker", page_icon="🎴", layout="wide")
+st.set_page_config(page_title="Suivi d'Achat / Vente", page_icon="🎴", layout="wide")
 
 # CSS personnalisé : Effet Arc-en-Ciel (> 200%)
 st.markdown("""
@@ -54,7 +54,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # Header centré
-st.markdown("<h1 style='text-align: center;'>🎴 Suivi d'Achat / Vente Pokémon</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🎴 Suivi d'Achat / Vente</h1>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
 # Formulaire d'ajout dans la barre latérale
@@ -67,7 +67,7 @@ with st.sidebar:
         
         statut = st.selectbox("Statut", ["En stock", "Vendu"])
         
-        prix_a = st.number_input("Prix d'achat unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 45.00 (ou 0 si gratuit)")
+        prix_a = st.number_input("Prix d'achat unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 45.00 (ou 0)")
         prix_v = st.number_input("Prix de vente unitaire réel (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 60.00 (si déjà vendu)")
         
         submitted = st.form_submit_button("Enregistrer")
@@ -147,7 +147,7 @@ if not df.empty:
     total_achat_vendus = df_vendus_global["Total Achat"].sum()
     benefice_realise = total_vente_realisee - total_achat_vendus
     
-    # Calcul de la Plus-Value Moyenne (%) (Exclusion stricte des produits gratuits prixAchat == 0)
+    # Calcul de la Plus-Value Moyenne (%)
     if not df_vendus_global.empty:
         df_vendus_payants = df_vendus_global[df_vendus_global["prixAchat"] > 0].copy()
         if not df_vendus_payants.empty:
@@ -173,7 +173,7 @@ if not df.empty:
     with col2:
         with st.container(border=True):
             st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Articles en Stock</p>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='text-align: center; color: #ffffff; margin-top: 0;'>{int(nb_articles_stock)}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align: center; color: #00bfff; margin-top: 0;'>{int(nb_articles_stock)}</h2>", unsafe_allow_html=True)
 
     with col3:
         with st.container(border=True):
@@ -279,7 +279,7 @@ if not df.empty:
             c_type.write(row['type'])
             c_nom.write(row['nom'])
             c_qte.write(str(row['quantite']))
-            c_pa.write(f"{row['prixAchat']:.2f} €" if row['prixAchat'] > 0 else "0.00 € (Gratuit)")
+            c_pa.write(f"{row['prixAchat']:.2f} €")
             c_ta.write(f"{row['Total Achat']:.2f} €")
             c_stat.markdown("🟢 En stock")
             
@@ -295,7 +295,6 @@ if not df.empty:
     
     with st.expander(f"📜 Historique des Ventes ({len(df_vendu_display)} article(s) vendu(s))", expanded=False):
         if not df_vendu_display.empty:
-            # Calcul préalable pour déterminer la valeur max
             df_vendu_display["Marge_Calc"] = df_vendu_display.apply(
                 lambda r: ((r["prixRevente"] - r["prixAchat"]) / r["prixAchat"] * 100) if r["prixAchat"] > 0 else -1.0,
                 axis=1
@@ -313,19 +312,17 @@ if not df.empty:
                 p_achat = row['prixAchat']
                 marge_pct = row["Marge_Calc"]
                 
-                # Couronne uniquement si c'est la marge payante maximale
                 couronne_str = " 👑" if (p_achat > 0 and marge_pct == max_marge_val and max_marge_val > 0) else ""
 
                 c_id.write(f"`{row['id']}`")
                 c_type.write(row['type'])
                 c_nom.write(row['nom'])
                 c_qte.write(str(row['quantite']))
-                c_pa.write(f"{row['prixAchat']:.2f} €" if p_achat > 0 else "0.00 € (Gratuit)")
+                c_pa.write(f"{row['prixAchat']:.2f} €")
                 c_pv.write(f"{row['prixRevente']:.2f} €")
                 
-                # Gestion des cas d'articles gratuits vs payants
                 if p_achat == 0:
-                    c_marge.markdown("<span style='color: #aaa; font-style: italic;'>N/A (Gratuit)</span>", unsafe_allow_html=True)
+                    c_marge.markdown("<span style='color: #aaa; font-style: italic;'>N/A</span>", unsafe_allow_html=True)
                 elif marge_pct > 200:
                     c_marge.markdown(f"<span class='rainbow-text'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
                 elif 100 <= marge_pct <= 200:
@@ -354,8 +351,7 @@ if not df.empty:
         else:
             st.write("Aucune vente enregistrée pour le moment.")
 
-    # Zone de suppression
-    st.markdown("---")
+    # Zone de suppression (Sans ligne de séparation au-dessus)
     with st.expander("🗑️ Supprimer un article"):
         article_a_supprimer = st.selectbox(
             "Choisir l'article à supprimer", 
@@ -372,7 +368,7 @@ if not df.empty:
     st.markdown("---")
     col_g1, col_g2 = st.columns(2)
 
-    # GRAPHIQUE 1: Pie Chart
+    # GRAPHIQUE 1: Pie Chart (Libellés raccourcis)
     with col_g1:
         with st.container(border=True):
             st.subheader("🥧 Répartition Financière Globale")
@@ -385,8 +381,8 @@ if not df.empty:
             p_cout = (cout_achat_vendus / total_global_pie * 100) if total_global_pie > 0 else 0
             p_ben = (ben_realise_positif / total_global_pie * 100) if total_global_pie > 0 else 0
             
-            cat_stock = f"<b>Total Investi (En Stock) ({p_stock:.1f}%)</b>"
-            cat_cout = f"<b>Coût d'Achat des Vendus ({p_cout:.1f}%)</b>"
+            cat_stock = f"<b>En Stock ({p_stock:.1f}%)</b>"
+            cat_cout = f"<b>Coût d'Achat Vendus ({p_cout:.1f}%)</b>"
             cat_ben = f"<b>Bénéfice Réel ({p_ben:.1f}%)</b>"
 
             data_pie = {
