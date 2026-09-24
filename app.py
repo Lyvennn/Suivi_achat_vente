@@ -549,18 +549,15 @@ if not df.empty:
             else:
                 st.info("Réalisez au moins une vente pour afficher les courbes comparatives.")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # --- 7. GRAPHIQUE 3: BARRE HORIZONTALE DÉCOUPÉE PAR TYPE D'ITEM ---
+    # --- 7. GRAPHIQUE 3: BARRE HORIZONTALE COMPACTE ET DÉCOUPÉE EN GRAS ---
     if not df_stock_global.empty:
         with st.container(border=True):
             st.subheader("🏷️ Répartition du Stock par Type d'Item (%)")
             
-            # Calcul du nombre total d'articles en stock pour les pourcentages
             total_items = df_stock_global["quantite"].sum()
             df_type_stock = df_stock_global.groupby("type")["quantite"].sum().reset_index()
             df_type_stock["Pourcentage"] = (df_type_stock["quantite"] / total_items) * 100
-            df_type_stock["Groupe"] = "Stock"  # Axe Y unique pour empiler
+            df_type_stock["Groupe"] = "Stock"
             
             fig_bar_stacked = px.bar(
                 df_type_stock,
@@ -575,17 +572,30 @@ if not df.empty:
             fig_bar_stacked.update_traces(
                 textposition="inside",
                 insidetextanchor="middle",
+                texttemplate="<b>%{text}</b>",
                 hovertemplate="<b>%{data.name}</b><br>Quantité: %{customdata[0]}<br>Proportion: %{x:.1f}%<extra></extra>",
                 customdata=df_type_stock[["quantite"]]
             )
             
             fig_bar_stacked.update_layout(
                 barmode="stack",
-                height=180,
-                margin=dict(l=10, r=10, t=20, b=10),
-                xaxis=dict(title="Pourcentage du stock total (%)", range=[0, 100], showgrid=True),
+                height=150,
+                margin=dict(l=10, r=10, t=30, b=50),
+                xaxis=dict(
+                    title="<b>Pourcentage du stock total (%)</b>", 
+                    range=[0, 100], 
+                    showgrid=True,
+                    side="top"
+                ),
                 yaxis=dict(showticklabels=False, title=""),
-                legend=dict(orientation="h", yanchor="bottom", y=-0.8, xanchor="center", x=0.5)
+                legend=dict(
+                    orientation="h", 
+                    yanchor="top", 
+                    y=-1.1, 
+                    xanchor="center", 
+                    x=0.5,
+                    title_text=""
+                )
             )
             
             st.plotly_chart(fig_bar_stacked, use_container_width=True)
