@@ -43,7 +43,6 @@ with st.sidebar:
         nom = st.text_input("Nom de l'article")
         qte = st.number_input("Quantité", min_value=1, value=1)
         
-        # Saisie des prix nettoyée (value=None évite le blocage derrière le 0.00)
         prix_a = st.number_input("Prix d'achat unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 45.00")
         prix_v = st.number_input("Prix de vente unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 60.00")
         statut = st.selectbox("Statut", ["En stock", "Vendu"])
@@ -107,62 +106,55 @@ if not df.empty:
     col3.metric("Bénéfice Réel (Vendus)", f"{benefice_realise:.2f} €", delta=f"{benefice_realise:.2f} €")
     col4.metric("Articles affichés", int(df_filtered["quantite"].sum()))
 
-    # Affichage du tableau
+    # --- TABLEAU INTERACTIF STYLE EXCEL ---
     st.subheader("📋 Inventaire")
-    st.dataframe(
-        df_filtered[["id", "type", "nom", "quantite", "prixAchat", "prixRevente", "Total Achat", "Total Vente", "statut"]],
+    st.caption("💡 Tu peux modifier le statut ou le prix de vente directement dans les cases ci-dessous :")
+    
+    # On masque la colonne ID d'origine pour en faire une colonne très compacte "#"
+    df_filtered["#"] = df_filtered["id"]
+    
+    edited_df = st.data_editor(
+        df_filtered[["#", "type", "nom", "quantite", "prixAchat", "prixRevente", "Total Achat", "Total Vente", "statut"]],
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
+        column_config={
+            "#": st.column_config.NumberColumn("#", width="small", disabled=True),
+            "type": st.column_config.TextColumn("Type", disabled=True),
+            "nom": st.column_config.TextColumn("Nom", disabled=True),
+            "quantite": st.column_config.NumberColumn("Qté", disabled=True, width="small"),
+            "prixAchat": st.column_config.NumberColumn("Prix Achat (€)", disabled=True, format="%.2f €"),
+            "Total Achat": st.column_config.NumberColumn("Total Achat", disabled=True, format="%.2f €"),
+            "Total Vente": st.column_config.NumberColumn("Total Vente", disabled=True, format="%.2f €"),
+            # Colonnes modifiables en direct
+            "prixRevente": st.column_config.NumberColumn("Prix Vente Unitaire (€)", format="%.2f €", min_value=0.0),
+            "statut": st.column_config.SelectboxColumn("Statut", options=["En stock", "Vendu"], required=True)
+        }
     )
 
-    # --- ZONES D'ACTIONS (Modifier prix/statut & Suppression) ---
+    # Bouton pour sauvegarder les modifications en direct
+    if st.button("💾 Enregistrer les modifications du tableau"):
+        for index, row in edited_df.iterrows():
+            item_id = int(row["#"])
+            supabase.table("inventaire").update({
+                "statut": row["statut"],
+                "prixRevente": float(row["prixRevente"]) if pd.notna(row["prixRevente"]) else 0.0
+            }).eq("id", item_id).execute()
+        st.success("Modifications enregistrées sur Supabase !")
+        st.rerun()
+
+    # Zone de suppression
     st.markdown("---")
-    col_act1, col_act2 = st.columns(2)
-
-    # 1. Mettre à jour statut et prix de vente
-    with col_act1:
-        with st.expander("🔄 Modifier le statut / Prix de vente"):
-            article_id = st.selectbox(
-                "Sélectionner l'article", 
-                options=df["id"].tolist(), 
-                format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]} ({df[df['id']==x]['statut'].values[0]})",
-                key="select_update"
-            )
-            
-            row_courante = df[df['id'] == article_id].iloc[0]
-            
-            nouveau_statut = st.selectbox("Statut", ["En stock", "Vendu"], index=0 if row_courante["statut"] == "En stock" else 1)
-            
-            val_init_pv = float(row_courante["prixRevente"]) if pd.notna(row_courante["prixRevente"]) else None
-            nouveau_prix_vente = st.number_input(
-                "Prix de vente unitaire (€)", 
-                min_value=0.0, 
-                value=val_init_pv, 
-                step=1.0,
-                placeholder="Renseigner le prix de vente"
-            )
-            
-            if st.button("Valider les modifications"):
-                supabase.table("inventaire").update({
-                    "statut": nouveau_statut,
-                    "prixRevente": float(nouveau_prix_vente) if nouveau_prix_vente is not None else 0.0
-                }).eq("id", article_id).execute()
-                st.success("Article mis à jour !")
-                st.rerun()
-
-    # 2. Supprimer un article
-    with col_act2:
-        with st.expander("🗑️ Supprimer un article"):
-            article_a_supprimer = st.selectbox(
-                "Choisir l'article à supprimer", 
-                options=df["id"].tolist(), 
-                format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]}",
-                key="select_delete"
-            )
-            if st.button("Confirmer la suppression"):
-                supabase.table("inventaire").delete().eq("id", article_a_supprimer).execute()
-                st.warning("Article supprimé !")
-                st.rerun()
+    with st.expander("🗑️ Supprimer un article"):
+        article_a_supprimer = st.selectbox(
+            "Choisir l'article à supprimer", 
+            options=df["id"].tolist(), 
+            format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]}",
+            key="select_delete"
+        )
+        if st.button("Confirmer la suppression"):
+            supabase.table("inventaire").delete().eq("id", article_a_supprimer).execute()
+            st.warning("Article supprimé !")
+            st.rerun()
 
     # Graphiques
     col_g1, col_g2 = st.columns(2)
@@ -174,5 +166,4 @@ if not df.empty:
         st.plotly_chart(fig_statut, use_container_width=True)
 
 else:
-    st.info("Votre inventaire est vide. Ajoutez votre premier article depuis la barre latérale !")
-    
+    st.info("Votre inventaire me parait vide. Ajoutez votre premier article depuis la barre latérale !")
