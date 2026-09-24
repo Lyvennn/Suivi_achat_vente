@@ -114,38 +114,51 @@ if not df.empty:
     df["Total Achat"] = df["prixAchat"] * df["quantite"]
     df["Total Vente"] = df["prixRevente"] * df["quantite"]
 
-    # --- CALCULS POUR LES 4 METRIQUES DEMANDÉES ---
+    # --- CALCULS POUR LES METRIQUES ---
     df_stock = df[df["statut"] == "En stock"]
     df_vendus = df[df["statut"] == "Vendu"]
     
-    # 1. Total investi uniquement dans les items non vendus
     total_investi_stock = df_stock["Total Achat"].sum()
-    
-    # 2. Nombre d'articles stockés
     nb_articles_stock = df_stock["quantite"].sum()
     
-    # 3. Bénéfice réel (€) sur les articles vendus
     total_vente_realisee = df_vendus["Total Vente"].sum()
     total_achat_vendus = df_vendus["Total Achat"].sum()
     benefice_realise = total_vente_realisee - total_achat_vendus
     
-    # 4. Pourcentage de plus-value sur les articles vendus
     if total_achat_vendus > 0:
         pourcentage_plus_value = (benefice_realise / total_achat_vendus) * 100
     else:
         pourcentage_plus_value = 0.0
 
-    # --- 1. LES 4 CASES EN HAUT ---
+    # --- 1. LES 4 CASES DE STATISTIQUES STYLE CARTE ---
+    st.markdown("<h3 style='text-align: center;'>📊 Statistiques Générales</h3>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
     
-    col1.metric("Total Investi (En Stock)", f"{total_investi_stock:.2f} €")
-    col2.metric("Articles en Stock", int(nb_articles_stock))
-    col3.metric("Marge / Plus-value (%)", f"{pourcentage_plus_value:.1f} %", delta=f"{pourcentage_plus_value:.1f} %")
-    col4.metric("Bénéfice Réel (€)", f"{benefice_realise:.2f} €", delta=f"{benefice_realise:.2f} €")
+    with col1:
+        with st.container(border=True):
+            st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Total Investi (En Stock)</p>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align: center; color: #ff9900; margin-top: 0;'>{total_investi_stock:.2f} €</h2>", unsafe_allow_html=True)
+
+    with col2:
+        with st.container(border=True):
+            st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Articles en Stock</p>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align: center; color: #00bfff; margin-top: 0;'>{int(nb_articles_stock)}</h2>", unsafe_allow_html=True)
+
+    with col3:
+        with st.container(border=True):
+            st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Plus-Value (%)</p>", unsafe_allow_html=True)
+            couleur_pct = "#00ffcc" if pourcentage_plus_value >= 0 else "#ff4d4d"
+            st.markdown(f"<h2 style='text-align: center; color: {couleur_pct}; margin-top: 0;'>{pourcentage_plus_value:.1f} %</h2>", unsafe_allow_html=True)
+
+    with col4:
+        with st.container(border=True):
+            st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Bénéfice Réel (€)</p>", unsafe_allow_html=True)
+            couleur_ben = "#00ffcc" if benefice_realise >= 0 else "#ff4d4d"
+            st.markdown(f"<h2 style='text-align: center; color: {couleur_ben}; margin-top: 0;'>{benefice_realise:.2f} €</h2>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- 2. LES FILTRES EN CASES ISOLÉES (Juste en dessous des métriques) ---
+    # --- 2. FILTRES EN CASES ISOLÉES ---
     col_f1, col_f2 = st.columns(2)
     
     with col_f1:
@@ -156,7 +169,7 @@ if not df.empty:
         with st.container(border=True):
             filtre_types = st.multiselect("🏷️ Filtrer par Type (ex: ETB)", options=df["type"].unique(), default=[])
 
-    # Application des filtres sur les données de l'inventaire
+    # Application des filtres
     df_filtered = df.copy()
     
     if recherche_texte:
@@ -167,7 +180,7 @@ if not df.empty:
 
     st.markdown("---")
 
-    # --- 3. L'INVENTAIRE ---
+    # --- 3. INVENTAIRE ---
     st.subheader("📋 Inventaire")
 
     # En-tête du tableau
@@ -195,7 +208,14 @@ if not df.empty:
                 modal_vente(row.to_dict())
         else:
             c_stat.markdown("🔴 Vendu")
-            c_act.write("-")
+            # Bouton pour réinitialiser la vente et remettre en stock
+            if c_act.button("↩️", key=f"undo_btn_{row['id']}", help="Annuler la vente et remettre en stock"):
+                supabase.table("inventaire").update({
+                    "statut": "En stock",
+                    "prixRevente": 0.0
+                }).eq("id", row['id']).execute()
+                st.success("Article remis en stock !")
+                st.rerun()
 
     # Zone de suppression
     st.markdown("---")
