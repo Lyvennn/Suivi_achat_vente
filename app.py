@@ -242,26 +242,35 @@ if not df.empty:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- 5. TABLEAU HISTORIQUE DES VENTES (MASQUABLE) ---
+    # --- 5. TABLEAU HISTORIQUE DES VENTES (AVEC POURCENTAGE DE PLUS-VALUE) ---
     df_vendu_display = df_filtered[df_filtered["statut"] == "Vendu"]
     
     with st.expander(f"📜 Historique des Ventes ({len(df_vendu_display)} article(s) vendu(s))", expanded=False):
         if not df_vendu_display.empty:
             cols_header_v = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
-            headers_v = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Tot. Achat", "Tot. Vente", "Statut", "Action"]
+            # Remplacement de Tot. Achat par Marge (%)
+            headers_v = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Action"]
             for col, h in zip(cols_header_v, headers_v):
                 col.markdown(f"**{h}**")
 
             for idx, row in df_vendu_display.iterrows():
-                c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_ta, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+                c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
                 
+                # Calcul du pourcentage de plus-value par article vendu
+                p_achat = row['prixAchat']
+                p_vente = row['prixRevente']
+                if p_achat > 0:
+                    marge_pct = ((p_vente - p_achat) / p_achat) * 100
+                else:
+                    marge_pct = 0.0
+
                 c_id.write(f"`{row['id']}`")
                 c_type.write(row['type'])
                 c_nom.write(row['nom'])
                 c_qte.write(row['quantite'])
                 c_pa.write(f"{row['prixAchat']:.2f} €")
                 c_pv.write(f"{row['prixRevente']:.2f} €")
-                c_ta.write(f"{row['Total Achat']:.2f} €")
+                c_marge.write(f"{marge_pct:+.1f} %")  # Affichage de la plus-value en %
                 c_tv.write(f"{row['Total Vente']:.2f} €")
                 c_stat.markdown("🔴 Vendu")
                 
@@ -289,11 +298,11 @@ if not df.empty:
             st.warning("Article supprimé !")
             st.rerun()
 
-    # --- 6. NOUVEAUX GRAPHIQUES DU BAS ---
+    # --- 6. GRAPHIQUES DU BAS ---
     st.markdown("---")
     col_g1, col_g2 = st.columns(2)
 
-    # GRAPHIQUE 1: Pie Chart (Ventilation financière)
+    # GRAPHIQUE 1: Pie Chart sans trou (hole=0)
     with col_g1:
         with st.container(border=True):
             st.subheader("🥧 Répartition Financière Globale")
@@ -317,13 +326,13 @@ if not df.empty:
                     "Coût d'Achat des Produits Vendus": "#00bfff",
                     "Bénéfice Réel": "#00ffcc"
                 },
-                hole=0.4
+                hole=0  # Pie chart complet (sans trou au milieu)
             )
             fig_pie.update_traces(textposition='inside', textinfo='percent+label')
             fig_pie.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10))
             st.plotly_chart(fig_pie, use_container_width=True)
 
-    # GRAPHIQUE 2: Courbes Comparatives (Prix d'achat vs Prix de vente)
+    # GRAPHIQUE 2: Courbes Comparatives
     with col_g2:
         with st.container(border=True):
             st.subheader("📊 Comparatif Prix d'Achat vs Prix de Vente")
@@ -334,7 +343,6 @@ if not df.empty:
 
                 fig_curve = go.Figure()
                 
-                # Courbe Prix d'Achat (Total Achat de la ligne)
                 fig_curve.add_trace(go.Scatter(
                     x=df_curve["N_Vente"],
                     y=df_curve["Total Achat"],
@@ -345,7 +353,6 @@ if not df.empty:
                     text=df_curve["nom"]
                 ))
                 
-                # Courbe Prix de Vente (Total Vente de la ligne)
                 fig_curve.add_trace(go.Scatter(
                     x=df_curve["N_Vente"],
                     y=df_curve["Total Vente"],
