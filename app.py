@@ -8,7 +8,7 @@ from datetime import datetime
 # Page Config
 st.set_page_config(page_title="Pokémon Tracker", page_icon="🎴", layout="wide")
 
-# CSS personnalisé pour l'effet Arc-en-Ciel (> 200%)
+# CSS personnalisé : Effet Arc-en-Ciel ET Effet Feux d'artifice/Étincelles permanents autour du texte (>200%)
 st.markdown("""
 <style>
 @keyframes rainbow_animation {
@@ -16,6 +16,15 @@ st.markdown("""
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
+
+@keyframes fireworks_sparkle {
+    0% { box-shadow: 0 0 4px #ff0055, 0 0 8px #ff0055, 0 0 12px #ffdd00; }
+    25% { box-shadow: -2px -2px 6px #00ffcc, 2px 2px 10px #00ffcc, 0 0 14px #ff00ff; }
+    50% { box-shadow: 2px -2px 8px #ffdd00, -2px 2px 12px #ffdd00, 0 0 16px #00ffcc; }
+    75% { box-shadow: -2px 2px 6px #ff00ff, 2px -2px 10px #ff00ff, 0 0 14px #ff0055; }
+    100% { box-shadow: 0 0 4px #ff0055, 0 0 8px #ff0055, 0 0 12px #ffdd00; }
+}
+
 .rainbow-text {
     background: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3);
     background-size: 180% 180%;
@@ -23,6 +32,16 @@ st.markdown("""
     -webkit-text-fill-color: transparent;
     animation: rainbow_animation 3s ease infinite;
     font-weight: bold;
+}
+
+.fireworks-badge {
+    position: relative;
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 215, 0, 0.6);
+    animation: fireworks_sparkle 1.2s infinite alternate;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -147,17 +166,12 @@ if not df.empty:
     total_achat_vendus = df_vendus_global["Total Achat"].sum()
     benefice_realise = total_vente_realisee - total_achat_vendus
     
-    # Calcul de la Plus-Value Moyenne (%) sur les ventes
     if not df_vendus_global.empty:
         df_vendus_global["Marge_Pct"] = df_vendus_global.apply(
             lambda r: ((r["prixRevente"] - r["prixAchat"]) / r["prixAchat"] * 100) if r["prixAchat"] > 0 else 0.0,
             axis=1
         )
         pourcentage_plus_value_moyen = df_vendus_global["Marge_Pct"].mean()
-        
-        # Déclenchement de l'effet feux d'artifice si une vente dépasse 200%
-        if df_vendus_global["Marge_Pct"].max() > 200:
-            st.balloons()
     else:
         pourcentage_plus_value_moyen = 0.0
 
@@ -310,8 +324,6 @@ if not df.empty:
                 c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
                 
                 marge_pct = row["Marge_Calc"]
-                
-                # Couronne en dehors du span stylisé pour conserver sa couleur naturelle
                 couronne_str = " 👑" if (marge_pct == max_marge_val and max_marge_val > 0) else ""
 
                 c_id.write(f"`{row['id']}`")
@@ -321,9 +333,12 @@ if not df.empty:
                 c_pa.write(f"{row['prixAchat']:.2f} €")
                 c_pv.write(f"{row['prixRevente']:.2f} €")
                 
-                # Style selon les tranches de marge
+                # Effet feux d'artifice permanent autour du nombre si > 200%
                 if marge_pct > 200:
-                    c_marge.markdown(f"<span class='rainbow-text'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
+                    c_marge.markdown(
+                        f"✨<div class='fireworks-badge'><span class='rainbow-text'>{marge_pct:+.1f} %</span></div>✨{couronne_str}", 
+                        unsafe_allow_html=True
+                    )
                 elif 100 <= marge_pct <= 200:
                     c_marge.markdown(f"<span style='color: #ffd700; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
                 elif 75 <= marge_pct < 100:
