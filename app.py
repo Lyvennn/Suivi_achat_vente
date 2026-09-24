@@ -154,6 +154,10 @@ if not df.empty:
             axis=1
         )
         pourcentage_plus_value_moyen = df_vendus_global["Marge_Pct"].mean()
+        
+        # Déclenchement de l'effet feux d'artifice si une vente dépasse 200%
+        if df_vendus_global["Marge_Pct"].max() > 200:
+            st.balloons()
     else:
         pourcentage_plus_value_moyen = 0.0
 
@@ -291,7 +295,6 @@ if not df.empty:
     
     with st.expander(f"📜 Historique des Ventes ({len(df_vendu_display)} article(s) vendu(s))", expanded=False):
         if not df_vendu_display.empty:
-            # Calcul préalable des marges pour identifier le maximum (pour la couronne 👑)
             df_vendu_display["Marge_Calc"] = df_vendu_display.apply(
                 lambda r: ((r["prixRevente"] - r["prixAchat"]) / r["prixAchat"] * 100) if r["prixAchat"] > 0 else 0.0,
                 axis=1
@@ -308,7 +311,7 @@ if not df.empty:
                 
                 marge_pct = row["Marge_Calc"]
                 
-                # Vérifie si c'est la marge maximale pour ajouter la couronne
+                # Couronne en dehors du span stylisé pour conserver sa couleur naturelle
                 couronne_str = " 👑" if (marge_pct == max_marge_val and max_marge_val > 0) else ""
 
                 c_id.write(f"`{row['id']}`")
@@ -318,21 +321,21 @@ if not df.empty:
                 c_pa.write(f"{row['prixAchat']:.2f} €")
                 c_pv.write(f"{row['prixRevente']:.2f} €")
                 
-                # Style selon les tranches de marge demandées
+                # Style selon les tranches de marge
                 if marge_pct > 200:
-                    c_marge.markdown(f"<span class='rainbow-text'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)
+                    c_marge.markdown(f"<span class='rainbow-text'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
                 elif 100 <= marge_pct <= 200:
-                    c_marge.markdown(f"<span style='color: #ffd700; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Doré
+                    c_marge.markdown(f"<span style='color: #ffd700; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
                 elif 75 <= marge_pct < 100:
-                    c_marge.markdown(f"<span style='color: #69f0ae; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Vert 75-100%
+                    c_marge.markdown(f"<span style='color: #69f0ae; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
                 elif 50 <= marge_pct < 75:
-                    c_marge.markdown(f"<span style='color: #00e676; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Vert 50-75%
+                    c_marge.markdown(f"<span style='color: #00e676; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
                 elif 25 <= marge_pct < 50:
-                    c_marge.markdown(f"<span style='color: #2e7d32; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Vert 25-50%
+                    c_marge.markdown(f"<span style='color: #2e7d32; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
                 elif 0 <= marge_pct < 25:
-                    c_marge.markdown(f"<span style='color: #1e4620; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Vert 0-25%
+                    c_marge.markdown(f"<span style='color: #1e4620; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
                 else:
-                    c_marge.markdown(f"<span style='color: #ff4d4d; font-weight: bold;'>{marge_pct:+.1f} %{couronne_str}</span>", unsafe_allow_html=True)  # Rouge si perte
+                    c_marge.markdown(f"<span style='color: #ff4d4d; font-weight: bold;'>{marge_pct:+.1f} %</span>{couronne_str}", unsafe_allow_html=True)
 
                 c_tv.write(f"{row['Total Vente']:.2f} €")
                 c_stat.markdown("🔴 Vendu")
