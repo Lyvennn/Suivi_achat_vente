@@ -170,9 +170,7 @@ if not df.empty:
     # --- 2. GRAPHIQUE D'ÉVOLUTION DE LA PLUS-VALUE PAR VENTE ---
     if not df_vendus_global.empty:
         with st.container(border=True):
-            st.subheader("📈 Évolution du Bénéfice Cumulé selon les Ventes")
-            
-            # --- CALCUL DU DEBUT (1er Janvier 2025) ---
+            # Calcul du temps écoulé depuis le 01/01/2025
             date_debut = datetime(2025, 1, 1)
             maintenant = datetime.now()
             
@@ -182,13 +180,19 @@ if not df.empty:
             
             gain_par_mois = benefice_realise / nb_mois
             gain_par_an = benefice_realise / nb_annees
-            
-            # Affichage de la petite case informative sur les moyennes
-            col_m1, col_m2 = st.columns(2)
-            with col_m1:
-                st.info(f"🗓️ **Gain moyen mensuel :** `{gain_par_mois:.2f} € / mois` *(depuis le 01/01/2025)*")
-            with col_m2:
-                st.info(f"📅 **Gain moyen annuel :** `{gain_par_an:.2f} € / an` *(depuis le 01/01/2025)*")
+
+            # Titre et indicateurs discrets alignés
+            col_t1, col_t2 = st.columns([1.5, 1])
+            with col_t1:
+                st.subheader("📈 Évolution du Bénéfice Cumulé")
+            with col_t2:
+                st.markdown(
+                    f"<div style='text-align: right; color: #aaa; font-size: 0.9em; padding-top: 5px;'>"
+                    f"Gain mensuel : <b style='color: #00ffcc;'>{gain_par_mois:.2f} €</b> | "
+                    f"Gain annuel : <b style='color: #00ffcc;'>{gain_par_an:.2f} €</b>"
+                    f"</div>", 
+                    unsafe_allow_html=True
+                )
 
             df_vendus_chart = df_vendus_global.copy()
             df_vendus_chart["Benefice_Unitaire"] = df_vendus_chart["Total Vente"] - df_vendus_chart["Total Achat"]
@@ -211,7 +215,7 @@ if not df.empty:
             )
             fig_evo.update_traces(line_color="#00ffcc", line_width=3, marker=dict(size=8))
             fig_evo.update_xaxes(dtick=1, tick0=0)
-            fig_evo.update_layout(height=300, margin=dict(l=20, r=20, t=30, b=20))
+            fig_evo.update_layout(height=300, margin=dict(l=20, r=20, t=10, b=20))
             st.plotly_chart(fig_evo, use_container_width=True)
             
     st.markdown("<br>", unsafe_allow_html=True)
@@ -332,7 +336,7 @@ if not df.empty:
     st.markdown("---")
     col_g1, col_g2 = st.columns(2)
 
-    # GRAPHIQUE 1: Pie Chart (Montant en € sur les parts, % dans la légende)
+    # GRAPHIQUE 1: Pie Chart (Texte et pourcentages en GRAS)
     with col_g1:
         with st.container(border=True):
             st.subheader("🥧 Répartition Financière Globale")
@@ -341,14 +345,14 @@ if not df.empty:
             ben_realise_positif = max(benefice_realise, 0.0)
             total_global_pie = total_investi_stock + cout_achat_vendus + ben_realise_positif
             
-            # Calcul des % pour la légende
+            # % pour la légende en gras
             p_stock = (total_investi_stock / total_global_pie * 100) if total_global_pie > 0 else 0
             p_cout = (cout_achat_vendus / total_global_pie * 100) if total_global_pie > 0 else 0
             p_ben = (ben_realise_positif / total_global_pie * 100) if total_global_pie > 0 else 0
             
-            cat_stock = f"Total Investi (En Stock) ({p_stock:.1f}%)"
-            cat_cout = f"Coût d'Achat des Vendus ({p_cout:.1f}%)"
-            cat_ben = f"Bénéfice Réel ({p_ben:.1f}%)"
+            cat_stock = f"<b>Total Investi (En Stock) ({p_stock:.1f}%)</b>"
+            cat_cout = f"<b>Coût d'Achat des Vendus ({p_cout:.1f}%)</b>"
+            cat_ben = f"<b>Bénéfice Réel ({p_ben:.1f}%)</b>"
 
             data_pie = {
                 "Catégorie": [cat_stock, cat_cout, cat_ben],
@@ -368,9 +372,17 @@ if not df.empty:
                 },
                 hole=0
             )
-            # Affiche le montant en Euros directement sur les tranches
-            fig_pie.update_traces(textposition='inside', texttemplate='%{value:.2f} €')
-            fig_pie.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10), legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5))
+            # Montants sur les parts en gras
+            fig_pie.update_traces(
+                textposition='inside', 
+                texttemplate='<b>%{value:.2f} €</b>',
+                textfont=dict(size=13)
+            )
+            fig_pie.update_layout(
+                height=350, 
+                margin=dict(l=10, r=10, t=30, b=10), 
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5, font=dict(size=12))
+            )
             st.plotly_chart(fig_pie, use_container_width=True)
 
     # GRAPHIQUE 2: Courbes Comparatives CUMULÉES
