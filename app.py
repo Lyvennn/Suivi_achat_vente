@@ -22,7 +22,7 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.title("🔒 Accès Protégé")
+    st.markdown("<h1 style='text-align: center;'>🔒 Accès Protégé</h1>", unsafe_allow_html=True)
     pwd = st.text_input("Mot de passe", type="password")
     if st.button("Se connecter"):
         if pwd == MOT_DE_PASSE:
@@ -32,8 +32,9 @@ if not st.session_state["authenticated"]:
             st.error("Mot de passe incorrect")
     st.stop()
 
-# Header
-st.title("🎴 Suivi d'Achat / Vente Pokémon")
+# Header centré
+st.markdown("<h1 style='text-align: center;'>🎴 Suivi d'Achat / Vente Pokémon</h1>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 # Formulaire d'ajout dans la barre latérale
 with st.sidebar:
@@ -70,7 +71,7 @@ df = pd.DataFrame(data)
 @st.dialog("🛒 Valider la vente d'un article")
 def modal_vente(item):
     st.write(f"**Produit :** {item['nom']}")
-    st.write(f"**Quantité actuellement en stock/enregistrée :** {item['quantite']}")
+    st.write(f"**Quantité actuellement en stock :** {item['quantite']}")
     
     with st.form("form_modal_vente"):
         qte_vendue = st.number_input("Quantité vendue", min_value=1, max_value=int(item['quantite']), value=int(item['quantite']))
@@ -86,18 +87,15 @@ def modal_vente(item):
         if valider:
             p_vente = float(prix_vente_unitaire) if prix_vente_unitaire is not None else 0.0
             
-            # Si toute la quantité est vendue
             if qte_vendue == item['quantite']:
                 supabase.table("inventaire").update({
                     "statut": "Vendu",
                     "prixRevente": p_vente
                 }).eq("id", item['id']).execute()
             else:
-                # Si vente partielle : on réduit la quantité du stock et on crée une ligne "Vendu"
                 nouvelle_qte_stock = item['quantite'] - qte_vendue
                 supabase.table("inventaire").update({"quantite": nouvelle_qte_stock}).eq("id", item['id']).execute()
                 
-                # Nouvelle ligne pour les articles vendus
                 article_vendu = {
                     "type": item['type'],
                     "nom": item['nom'],
@@ -136,31 +134,45 @@ if not df.empty:
 
     st.markdown("---")
 
-    # --- CALCUL DÉTAILLÉ DU BÉNÉFICE RÉALISÉ ---
+    # --- CALCULS POUR LES 4 METRIQUES DEMANDÉES ---
+    df_stock = df_filtered[df_filtered["statut"] == "En stock"]
     df_vendus = df_filtered[df_filtered["statut"] == "Vendu"]
+    
+    # 1. Total investi uniquement dans les items non vendus
+    total_investi_stock = df_stock["Total Achat"].sum()
+    
+    # 2. Nombre d'articles stockés
+    nb_articles_stock = df_stock["quantite"].sum()
+    
+    # 3. Bénéfice réel (€) sur les articles vendus
     total_vente_realisee = df_vendus["Total Vente"].sum()
     total_achat_vendus = df_vendus["Total Achat"].sum()
     benefice_realise = total_vente_realisee - total_achat_vendus
-
-    # Indicateurs (KPIs)
-    col1, col2, col3, col4 = st.columns(4)
-    total_investi = df_filtered["Total Achat"].sum()
     
-    col1.metric("Total Investi (Global)", f"{total_investi:.2f} €")
-    col2.metric("Chiffre d'Affaires (Vendus)", f"{total_vente_realisee:.2f} €")
-    col3.metric("Bénéfice Réel (Vendus)", f"{benefice_realise:.2f} €", delta=f"{benefice_realise:.2f} €")
-    col4.metric("Articles affichés", int(df_filtered["quantite"].sum()))
+    # 4. Pourcentage de plus-value sur les articles vendus
+    if total_achat_vendus > 0:
+        pourcentage_plus_value = (benefice_realise / total_achat_vendus) * 100
+    else:
+        pourcentage_plus_value = 0.0
+
+    # --- AFFICHAGE DES 4 CASES EN HAUT ---
+    col1, col2, col3, col4 = st.columns(4)
+    
+    col1.metric("Total Investi (En Stock)", f"{total_investi_stock:.2f} €")
+    col2.metric("Articles en Stock", int(nb_articles_stock))
+    col3.metric("Marge / Plus-value (%)", f"{pourcentage_plus_value:.1f} %", delta=f"{pourcentage_plus_value:.1f} %")
+    col4.metric("Bénéfice Réel (€)", f"{benefice_realise:.2f} €", delta=f"{benefice_realise:.2f} €")
 
     st.markdown("---")
     st.subheader("📋 Inventaire")
 
-    # En-tête du tableau personnalisé
+    # En-tête du tableau
     cols_header = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
     headers = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Tot. Achat", "Tot. Vente", "Statut", "Action"]
     for col, h in zip(cols_header, headers):
         col.markdown(f"**{h}**")
 
-    # Affichage ligne par ligne avec bouton d'action direct
+    # Lignes du tableau
     for idx, row in df_filtered.iterrows():
         c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_ta, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
         
@@ -173,15 +185,13 @@ if not df.empty:
         c_ta.write(f"{row['Total Achat']:.2f} €")
         c_tv.write(f"{row['Total Vente']:.2f} €")
         
-        # Badge de statut
         if row['statut'] == "En stock":
             c_stat.markdown("🟢 En stock")
+            if c_act.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
+                modal_vente(row.to_dict())
         else:
             c_stat.markdown("🔴 Vendu")
-            
-        # Bouton d'action caddie
-        if c_act.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
-            modal_vente(row.to_dict())
+            c_act.write("-")
 
     # Zone de suppression
     st.markdown("---")
