@@ -66,16 +66,31 @@ data = response.data
 df = pd.DataFrame(data)
 
 if not df.empty:
-    # Calculs pour les KPIs
+    # Calculs de base
     df["Total Achat"] = df["prixAchat"] * df["quantite"]
     df["Total Vente"] = df["prixRevente"] * df["quantite"]
     
-    # Filtres rapides
-    st.sidebar.header("🔍 Filtres")
-    filtre_statut = st.sidebar.multiselect("Filtrer par statut", options=df["statut"].unique(), default=df["statut"].unique())
-    df_filtered = df[df["statut"].isin(filtre_statut)]
+    # --- BARRE DE RECHERCHE ET FILTRES (Au-dessus du tableau) ---
+    st.subheader("🔍 Recherche & Filtres")
+    col_f1, col_f2 = st.columns(2)
+    
+    with col_f1:
+        recherche_texte = st.text_input("🔎 Rechercher par nom (ex: Charizard, 151...)", "")
+    with col_f2:
+        filtre_types = st.multiselect("🏷️ Filtrer par Type (ex: ETB)", options=df["type"].unique(), default=[])
 
-    # Indicateurs (KPIs)
+    # Application des filtres
+    df_filtered = df.copy()
+    
+    if recherche_texte:
+        df_filtered = df_filtered[df_filtered["nom"].str.contains(recherche_texte, case=False, na=False)]
+        
+    if filtre_types:
+        df_filtered = df_filtered[df_filtered["type"].isin(filtre_types)]
+
+    st.markdown("---")
+
+    # Indicateurs (KPIs) basés sur l'affichage
     col1, col2, col3, col4 = st.columns(4)
     total_investi = df_filtered["Total Achat"].sum()
     total_revente = df_filtered["Total Vente"].sum()
@@ -84,11 +99,9 @@ if not df.empty:
     col1.metric("Total Investi", f"{total_investi:.2f} €")
     col2.metric("Valeur Estimée / Réelle", f"{total_revente:.2f} €")
     col3.metric("Bénéfice / Plus-value", f"{benefice_potentiel:.2f} €", delta=f"{benefice_potentiel:.2f} €")
-    col4.metric("Articles au total", int(df_filtered["quantite"].sum()))
+    col4.metric("Articles affichés", int(df_filtered["quantite"].sum()))
 
-    st.markdown("---")
-
-    # Affichage du tableau principal
+    # Affichage du tableau
     st.subheader("📋 Inventaire")
     st.dataframe(
         df_filtered[["id", "type", "nom", "quantite", "prixAchat", "prixRevente", "Total Achat", "Total Vente", "statut"]],
@@ -107,7 +120,11 @@ if not df.empty:
 
     # Zone de suppression
     with st.expander("🗑️ Supprimer un article"):
-        article_a_supprimer = st.selectbox("Choisir l'article à supprimer", options=df["id"].tolist(), format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]}")
+        article_a_supprimer = st.selectbox(
+            "Choisir l'article à supprimer", 
+            options=df["id"].tolist(), 
+            format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]}"
+        )
         if st.button("Confirmer la suppression"):
             supabase.table("inventaire").delete().eq("id", article_a_supprimer).execute()
             st.warning("Article supprimé !")
