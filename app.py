@@ -42,8 +42,10 @@ with st.sidebar:
         type_art = st.selectbox("Type", ["Boîte", "ETB", "Display", "Carte à l'unité", "Coffret", "Autre"])
         nom = st.text_input("Nom de l'article")
         qte = st.number_input("Quantité", min_value=1, value=1)
-        prix_a = st.number_input("Prix d'achat unitaire (€)", min_value=0.0, value=0.0, step=1.0)
-        prix_v = st.number_input("Prix de vente unitaire (€)", min_value=0.0, value=0.0, step=1.0)
+        
+        # Saisie des prix nettoyée (value=None évite le blocage derrière le 0.00)
+        prix_a = st.number_input("Prix d'achat unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 45.00")
+        prix_v = st.number_input("Prix de vente unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 60.00")
         statut = st.selectbox("Statut", ["En stock", "Vendu"])
         
         submitted = st.form_submit_button("Enregistrer")
@@ -52,8 +54,8 @@ with st.sidebar:
                 "type": type_art,
                 "nom": nom,
                 "quantite": int(qte),
-                "prixAchat": float(prix_a),
-                "prixRevente": float(prix_v),
+                "prixAchat": float(prix_a) if prix_a is not None else 0.0,
+                "prixRevente": float(prix_v) if prix_v is not None else 0.0,
                 "statut": statut
             }
             supabase.table("inventaire").insert(nouvel_article).execute()
@@ -91,12 +93,9 @@ if not df.empty:
     st.markdown("---")
 
     # --- CALCUL DÉTAILLÉ DU BÉNÉFICE RÉALISÉ ---
-    # On isole uniquement les articles vendus
     df_vendus = df_filtered[df_filtered["statut"] == "Vendu"]
     total_vente_realisee = df_vendus["Total Vente"].sum()
     total_achat_vendus = df_vendus["Total Achat"].sum()
-    
-    # Bénéfice net sur ce qui est vendu (Prix vente des vendus - Prix d'achat initial des vendus)
     benefice_realise = total_vente_realisee - total_achat_vendus
 
     # Indicateurs (KPIs)
@@ -116,6 +115,55 @@ if not df.empty:
         hide_index=True
     )
 
+    # --- ZONES D'ACTIONS (Modifier prix/statut & Suppression) ---
+    st.markdown("---")
+    col_act1, col_act2 = st.columns(2)
+
+    # 1. Mettre à jour statut et prix de vente
+    with col_act1:
+        with st.expander("🔄 Modifier le statut / Prix de vente"):
+            article_id = st.selectbox(
+                "Sélectionner l'article", 
+                options=df["id"].tolist(), 
+                format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]} ({df[df['id']==x]['statut'].values[0]})",
+                key="select_update"
+            )
+            
+            row_courante = df[df['id'] == article_id].iloc[0]
+            
+            nouveau_statut = st.selectbox("Statut", ["En stock", "Vendu"], index=0 if row_courante["statut"] == "En stock" else 1)
+            
+            val_init_pv = float(row_courante["prixRevente"]) if pd.notna(row_courante["prixRevente"]) else None
+            nouveau_prix_vente = st.number_input(
+                "Prix de vente unitaire (€)", 
+                min_value=0.0, 
+                value=val_init_pv, 
+                step=1.0,
+                placeholder="Renseigner le prix de vente"
+            )
+            
+            if st.button("Valider les modifications"):
+                supabase.table("inventaire").update({
+                    "statut": nouveau_statut,
+                    "prixRevente": float(nouveau_prix_vente) if nouveau_prix_vente is not None else 0.0
+                }).eq("id", article_id).execute()
+                st.success("Article mis à jour !")
+                st.rerun()
+
+    # 2. Supprimer un article
+    with col_act2:
+        with st.expander("🗑️ Supprimer un article"):
+            article_a_supprimer = st.selectbox(
+                "Choisir l'article à supprimer", 
+                options=df["id"].tolist(), 
+                format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]}",
+                key="select_delete"
+            )
+            if st.button("Confirmer la suppression"):
+                supabase.table("inventaire").delete().eq("id", article_a_supprimer).execute()
+                st.warning("Article supprimé !")
+                st.rerun()
+
     # Graphiques
     col_g1, col_g2 = st.columns(2)
     with col_g1:
@@ -125,17 +173,6 @@ if not df.empty:
         fig_statut = px.bar(df_filtered, x="nom", y="Total Achat", color="statut", title="Investissement par produit")
         st.plotly_chart(fig_statut, use_container_width=True)
 
-    # Zone de suppression
-    with st.expander("🗑️ Supprimer un article"):
-        article_a_supprimer = st.selectbox(
-            "Choisir l'article à supprimer", 
-            options=df["id"].tolist(), 
-            format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]}"
-        )
-        if st.button("Confirmer la suppression"):
-            supabase.table("inventaire").delete().eq("id", article_a_supprimer).execute()
-            st.warning("Article supprimé !")
-            st.rerun()
-
 else:
     st.info("Votre inventaire est vide. Ajoutez votre premier article depuis la barre latérale !")
+    
