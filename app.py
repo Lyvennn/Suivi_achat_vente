@@ -30,7 +30,7 @@ st.markdown("""
     align-items: center;
     text-align: center;
     width: 100%;
-    min-height: 45px;
+    min-height: 40px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -273,24 +273,24 @@ if not df.empty:
 
     st.markdown("---")
 
-    # --- 4. TABLEAU INVENTAIRE (ARTICLES EN STOCK CENTRÉS) ---
+    # --- 4. TABLEAU INVENTAIRE (ARTICLES EN STOCK COMPACTS ET CENTRÉS) ---
     st.subheader("📋 Inventaire (En Stock)")
     df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
 
     if not df_stock_display.empty:
-        cols_header = st.columns([0.6, 0.8, 1.2, 2.4, 0.8, 1.2, 1.2, 1.0, 1.0])
+        # Largeurs resserrées des colonnes pour éviter les grands vides
+        cols_header = st.columns([0.5, 0.7, 1.0, 1.8, 0.6, 1.0, 1.0, 1.0, 0.8])
         headers = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Action"]
         for col, h in zip(cols_header, headers):
             col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
         for idx, row in df_stock_display.iterrows():
-            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.6, 0.8, 1.2, 2.4, 0.8, 1.2, 1.2, 1.0, 1.0])
+            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.5, 0.7, 1.0, 1.8, 0.6, 1.0, 1.0, 1.0, 0.8])
             
             c_id.markdown(f"<div class='cell-center'><code>{row['id']}</code></div>", unsafe_allow_html=True)
             
-            # Visuel centré
             if pd.notna(row.get('image_url')) and str(row['image_url']).strip() != "":
-                c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='45' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
+                c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='40' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
             else:
                 c_img.markdown("<div class='cell-center'>🖼️ -</div>", unsafe_allow_html=True)
 
@@ -311,7 +311,7 @@ if not df.empty:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- 5. TABLEAU HISTORIQUE DES VENTES (CENTRÉS) ---
+    # --- 5. TABLEAU HISTORIQUE DES VENTES (COMPACTS ET CENTRÉS) ---
     df_vendu_display = df_filtered[df_filtered["statut"] == "Vendu"].copy()
     
     with st.expander(f"📜 Historique des Ventes ({len(df_vendu_display)} article(s) vendu(s))", expanded=False):
@@ -322,13 +322,13 @@ if not df.empty:
             )
             max_marge_val = df_vendu_display["Marge_Calc"].max()
 
-            cols_header_v = st.columns([0.6, 0.8, 1.2, 2.1, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+            cols_header_v = st.columns([0.5, 0.7, 1.0, 1.6, 0.6, 0.9, 0.9, 1.0, 0.9, 0.9, 0.8])
             headers_v = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Action"]
             for col, h in zip(cols_header_v, headers_v):
                 col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
             for idx, row in df_vendu_display.iterrows():
-                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.6, 0.8, 1.2, 2.1, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.5, 0.7, 1.0, 1.6, 0.6, 0.9, 0.9, 1.0, 0.9, 0.9, 0.8])
                 
                 p_achat = row['prixAchat']
                 marge_pct = row["Marge_Calc"]
@@ -337,9 +337,8 @@ if not df.empty:
 
                 c_id.markdown(f"<div class='cell-center'><code>{row['id']}</code></div>", unsafe_allow_html=True)
                 
-                # Visuel centré
                 if pd.notna(row.get('image_url')) and str(row['image_url']).strip() != "":
-                    c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='45' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
+                    c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='40' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
                 else:
                     c_img.markdown("<div class='cell-center'>🖼️ -</div>", unsafe_allow_html=True)
 
