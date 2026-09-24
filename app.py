@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from supabase import create_client
+from datetime import datetime
 
 # Page Config
 st.set_page_config(page_title="Pokémon Tracker", page_icon="🎴", layout="wide")
@@ -45,9 +46,11 @@ with st.sidebar:
         nom = st.text_input("Nom de l'article")
         qte = st.number_input("Quantité", min_value=1, value=1)
         
-        prix_a = st.number_input("Prix d'achat unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 45.00")
-        prix_v = st.number_input("Prix de vente unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 60.00")
         statut = st.selectbox("Statut", ["En stock", "Vendu"])
+        
+        prix_a = st.number_input("Prix d'achat unitaire (€)", min_value=0.0, value=None, step=1.0, placeholder="ex: 45.00")
+        label_prix_v = "Prix de vente estimé (€)" if statut == "En stock" else "Prix de vente unitaire réel (€)"
+        prix_v = st.number_input(label_prix_v, min_value=0.0, value=None, step=1.0, placeholder="ex: 60.00 (optionnel)")
         
         submitted = st.form_submit_button("Enregistrer")
         if submitted and nom:
@@ -77,7 +80,7 @@ def modal_vente(item):
     with st.form("form_modal_vente"):
         qte_vendue = st.number_input("Quantité vendue", min_value=1, max_value=int(item['quantite']), value=int(item['quantite']))
         prix_vente_unitaire = st.number_input(
-            "Prix de vente unitaire (€)", 
+            "Prix de vente unitaire réel (€)", 
             min_value=0.0, 
             value=float(item['prixRevente']) if item['prixRevente'] > 0 else None, 
             placeholder="ex: 60.00",
@@ -126,10 +129,15 @@ if not df.empty:
     total_achat_vendus = df_vendus_global["Total Achat"].sum()
     benefice_realise = total_vente_realisee - total_achat_vendus
     
-    if total_achat_vendus > 0:
-        pourcentage_plus_value = (benefice_realise / total_achat_vendus) * 100
+    # Calcul de la Plus-Value Moyenne (%) sur les ventes
+    if not df_vendus_global.empty:
+        df_vendus_global["Marge_Pct"] = df_vendus_global.apply(
+            lambda r: ((r["prixRevente"] - r["prixAchat"]) / r["prixAchat"] * 100) if r["prixAchat"] > 0 else 0.0,
+            axis=1
+        )
+        pourcentage_plus_value_moyen = df_vendus_global["Marge_Pct"].mean()
     else:
-        pourcentage_plus_value = 0.0
+        pourcentage_plus_value_moyen = 0.0
 
     # --- 1. LES 4 CASES DE STATISTIQUES ---
     st.markdown("<h3 style='text-align: center;'>📊 Statistiques Générales</h3>", unsafe_allow_html=True)
@@ -147,9 +155,9 @@ if not df.empty:
 
     with col3:
         with st.container(border=True):
-            st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Plus-Value (%)</p>", unsafe_allow_html=True)
-            couleur_pct = "#2e7d32" if pourcentage_plus_value >= 0 else "#c62828"
-            st.markdown(f"<h2 style='text-align: center; color: {couleur_pct}; margin-top: 0;'>{pourcentage_plus_value:.1f} %</h2>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Plus-Value Moyenne (%)</p>", unsafe_allow_html=True)
+            couleur_pct = "#2e7d32" if pourcentage_plus_value_moyen >= 0 else "#c62828"
+            st.markdown(f"<h2 style='text-align: center; color: {couleur_pct}; margin-top: 0;'>{pourcentage_plus_value_moyen:.1f} %</h2>", unsafe_allow_html=True)
 
     with col4:
         with st.container(border=True):
@@ -164,6 +172,24 @@ if not df.empty:
         with st.container(border=True):
             st.subheader("📈 Évolution du Bénéfice Cumulé selon les Ventes")
             
+            # --- CALCUL DU DEBUT (1er Janvier 2025) ---
+            date_debut = datetime(2025, 1, 1)
+            maintenant = datetime.now()
+            
+            nb_jours = max((maintenant - date_debut).days, 1)
+            nb_mois = max(nb_jours / 30.4375, 0.1)
+            nb_annees = max(nb_jours / 365.25, 0.01)
+            
+            gain_par_mois = benefice_realise / nb_mois
+            gain_par_an = benefice_realise / nb_annees
+            
+            # Affichage de la petite case informative sur les moyennes
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                st.info(f"🗓️ **Gain moyen mensuel :** `{gain_par_mois:.2f} € / mois` *(depuis le 01/01/2025)*")
+            with col_m2:
+                st.info(f"📅 **Gain moyen annuel :** `{gain_par_an:.2f} € / an` *(depuis le 01/01/2025)*")
+
             df_vendus_chart = df_vendus_global.copy()
             df_vendus_chart["Benefice_Unitaire"] = df_vendus_chart["Total Vente"] - df_vendus_chart["Total Achat"]
             df_vendus_chart = df_vendus_chart.sort_values(by="id").reset_index(drop=True)
@@ -212,27 +238,33 @@ if not df.empty:
 
     st.markdown("---")
 
-    # --- 4. TABLEAU INVENTAIRE (ARTICLES EN STOCK UNIQUEMENT) ---
+    # --- 4. TABLEAU INVENTAIRE (ARTICLES EN STOCK) ---
     st.subheader("📋 Inventaire (En Stock)")
     df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
 
     if not df_stock_display.empty:
-        cols_header = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
-        headers = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Tot. Achat", "Tot. Vente", "Statut", "Action"]
+        cols_header = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.4, 1.2, 1.2, 1.0, 1.0])
+        headers = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente (est.)", "Tot. Achat", "Tot. Est.", "Statut", "Action"]
         for col, h in zip(cols_header, headers):
             col.markdown(f"**{h}**")
 
         for idx, row in df_stock_display.iterrows():
-            c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_ta, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+            c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_ta, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.4, 1.2, 1.2, 1.0, 1.0])
             
             c_id.write(f"`{row['id']}`")
             c_type.write(row['type'])
             c_nom.write(row['nom'])
             c_qte.write(row['quantite'])
             c_pa.write(f"{row['prixAchat']:.2f} €")
-            c_pv.write(f"{row['prixRevente']:.2f} €")
+            
+            if row['prixRevente'] > 0:
+                c_pv.markdown(f"<span style='color: #888; font-style: italic;'>{row['prixRevente']:.2f} € (est.)</span>", unsafe_allow_html=True)
+                c_tv.markdown(f"<span style='color: #888; font-style: italic;'>{row['Total Vente']:.2f} €</span>", unsafe_allow_html=True)
+            else:
+                c_pv.write("-")
+                c_tv.write("-")
+
             c_ta.write(f"{row['Total Achat']:.2f} €")
-            c_tv.write(f"{row['Total Vente']:.2f} €")
             c_stat.markdown("🟢 En stock")
             
             if c_act.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
@@ -300,16 +332,26 @@ if not df.empty:
     st.markdown("---")
     col_g1, col_g2 = st.columns(2)
 
-    # GRAPHIQUE 1: Pie Chart sans trou
+    # GRAPHIQUE 1: Pie Chart (Montant en € sur les parts, % dans la légende)
     with col_g1:
         with st.container(border=True):
             st.subheader("🥧 Répartition Financière Globale")
             
             cout_achat_vendus = max(total_achat_vendus, 0.0)
             ben_realise_positif = max(benefice_realise, 0.0)
+            total_global_pie = total_investi_stock + cout_achat_vendus + ben_realise_positif
             
+            # Calcul des % pour la légende
+            p_stock = (total_investi_stock / total_global_pie * 100) if total_global_pie > 0 else 0
+            p_cout = (cout_achat_vendus / total_global_pie * 100) if total_global_pie > 0 else 0
+            p_ben = (ben_realise_positif / total_global_pie * 100) if total_global_pie > 0 else 0
+            
+            cat_stock = f"Total Investi (En Stock) ({p_stock:.1f}%)"
+            cat_cout = f"Coût d'Achat des Vendus ({p_cout:.1f}%)"
+            cat_ben = f"Bénéfice Réel ({p_ben:.1f}%)"
+
             data_pie = {
-                "Catégorie": ["Total Investi (En Stock)", "Coût d'Achat des Produits Vendus", "Bénéfice Réel"],
+                "Catégorie": [cat_stock, cat_cout, cat_ben],
                 "Montant (€)": [total_investi_stock, cout_achat_vendus, ben_realise_positif]
             }
             df_pie = pd.DataFrame(data_pie)
@@ -320,14 +362,15 @@ if not df.empty:
                 names="Catégorie",
                 color="Catégorie",
                 color_discrete_map={
-                    "Total Investi (En Stock)": "#ff9900",
-                    "Coût d'Achat des Produits Vendus": "#00bfff",
-                    "Bénéfice Réel": "#00ffcc"
+                    cat_stock: "#ff9900",
+                    cat_cout: "#00bfff",
+                    cat_ben: "#00ffcc"
                 },
                 hole=0
             )
-            fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-            fig_pie.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10))
+            # Affiche le montant en Euros directement sur les tranches
+            fig_pie.update_traces(textposition='inside', texttemplate='%{value:.2f} €')
+            fig_pie.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10), legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5))
             st.plotly_chart(fig_pie, use_container_width=True)
 
     # GRAPHIQUE 2: Courbes Comparatives CUMULÉES
@@ -339,11 +382,9 @@ if not df.empty:
                 df_curve = df_vendus_global.sort_values(by="id").reset_index(drop=True)
                 df_curve["N_Vente"] = df_curve.index + 1
 
-                # Calcul des montants cumulés au fil des ventes
                 df_curve["Total_Achat_Cumule"] = df_curve["Total Achat"].cumsum()
                 df_curve["Total_Vente_Cumule"] = df_curve["Total Vente"].cumsum()
 
-                # Ajout du point zéro de départ
                 df_curve_chart = pd.concat([
                     pd.DataFrame([{"N_Vente": 0, "Total_Achat_Cumule": 0.0, "Total_Vente_Cumule": 0.0, "nom": "Départ"}]),
                     df_curve[["N_Vente", "Total_Achat_Cumule", "Total_Vente_Cumule", "nom"]]
@@ -351,7 +392,6 @@ if not df.empty:
 
                 fig_curve = go.Figure()
                 
-                # Courbe Achats Cumulés
                 fig_curve.add_trace(go.Scatter(
                     x=df_curve_chart["N_Vente"],
                     y=df_curve_chart["Total_Achat_Cumule"],
@@ -362,7 +402,6 @@ if not df.empty:
                     text=df_curve_chart["nom"]
                 ))
                 
-                # Courbe Ventes Cumulées
                 fig_curve.add_trace(go.Scatter(
                     x=df_curve_chart["N_Vente"],
                     y=df_curve_chart["Total_Vente_Cumule"],
