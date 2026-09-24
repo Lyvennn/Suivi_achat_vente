@@ -30,7 +30,7 @@ st.markdown("""
     align-items: center;
     text-align: center;
     width: 100%;
-    min-height: 40px;
+    min-height: 60px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -273,24 +273,25 @@ if not df.empty:
 
     st.markdown("---")
 
-    # --- 4. TABLEAU INVENTAIRE (ARTICLES EN STOCK COMPACTS ET CENTRÉS) ---
+    # --- 4. TABLEAU INVENTAIRE (ARTICLES EN STOCK) ---
     st.subheader("📋 Inventaire (En Stock)")
     df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
 
     if not df_stock_display.empty:
-        # Largeurs resserrées des colonnes pour éviter les grands vides
-        cols_header = st.columns([0.5, 0.7, 1.0, 1.8, 0.6, 1.0, 1.0, 1.0, 0.8])
+        # Repartissage ajusté des colonnes (P. Achat & Tot. Achat resserrés pour laisser plus d'espace à Action)
+        cols_header = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.8, 0.8, 0.9, 1.0])
         headers = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Action"]
         for col, h in zip(cols_header, headers):
             col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
         for idx, row in df_stock_display.iterrows():
-            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.5, 0.7, 1.0, 1.8, 0.6, 1.0, 1.0, 1.0, 0.8])
+            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.8, 0.8, 0.9, 1.0])
             
             c_id.markdown(f"<div class='cell-center'><code>{row['id']}</code></div>", unsafe_allow_html=True)
             
+            # Images agrandies à width='60'
             if pd.notna(row.get('image_url')) and str(row['image_url']).strip() != "":
-                c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='40' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
+                c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='60' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
             else:
                 c_img.markdown("<div class='cell-center'>🖼️ -</div>", unsafe_allow_html=True)
 
@@ -302,16 +303,14 @@ if not df.empty:
             c_stat.markdown("<div class='cell-center'>🟢 En stock</div>", unsafe_allow_html=True)
             
             with c_act:
-                st.markdown("<div class='cell-center'>", unsafe_allow_html=True)
                 if st.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
                     modal_vente(row.to_dict())
-                st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info("Aucun article en stock correspondant à la recherche.")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- 5. TABLEAU HISTORIQUE DES VENTES (COMPACTS ET CENTRÉS) ---
+    # --- 5. TABLEAU HISTORIQUE DES VENTES ---
     df_vendu_display = df_filtered[df_filtered["statut"] == "Vendu"].copy()
     
     with st.expander(f"📜 Historique des Ventes ({len(df_vendu_display)} article(s) vendu(s))", expanded=False):
@@ -322,13 +321,13 @@ if not df.empty:
             )
             max_marge_val = df_vendu_display["Marge_Calc"].max()
 
-            cols_header_v = st.columns([0.5, 0.7, 1.0, 1.6, 0.6, 0.9, 0.9, 1.0, 0.9, 0.9, 0.8])
+            cols_header_v = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 1.0])
             headers_v = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Action"]
             for col, h in zip(cols_header_v, headers_v):
                 col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
             for idx, row in df_vendu_display.iterrows():
-                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.5, 0.7, 1.0, 1.6, 0.6, 0.9, 0.9, 1.0, 0.9, 0.9, 0.8])
+                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 1.0])
                 
                 p_achat = row['prixAchat']
                 marge_pct = row["Marge_Calc"]
@@ -338,7 +337,7 @@ if not df.empty:
                 c_id.markdown(f"<div class='cell-center'><code>{row['id']}</code></div>", unsafe_allow_html=True)
                 
                 if pd.notna(row.get('image_url')) and str(row['image_url']).strip() != "":
-                    c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='40' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
+                    c_img.markdown(f"<div class='cell-center'><img src='{row['image_url']}' width='60' style='border-radius: 4px;'/></div>", unsafe_allow_html=True)
                 else:
                     c_img.markdown("<div class='cell-center'>🖼️ -</div>", unsafe_allow_html=True)
 
@@ -369,7 +368,6 @@ if not df.empty:
                 c_stat.markdown("<div class='cell-center'>🔴 Vendu</div>", unsafe_allow_html=True)
                 
                 with c_act:
-                    st.markdown("<div class='cell-center'>", unsafe_allow_html=True)
                     if st.button("↩️", key=f"undo_btn_{row['id']}", help="Annuler la vente et remettre en stock"):
                         supabase.table("inventaire").update({
                             "statut": "En stock",
@@ -377,7 +375,6 @@ if not df.empty:
                         }).eq("id", row['id']).execute()
                         st.success("Article remis en stock !")
                         st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.write("Aucune vente enregistrée pour le moment.")
 
