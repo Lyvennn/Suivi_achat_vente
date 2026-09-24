@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from supabase import create_client
 
 # Page Config
@@ -288,14 +289,79 @@ if not df.empty:
             st.warning("Article supprimé !")
             st.rerun()
 
-    # Graphiques complémentaires en bas
+    # --- 6. NOUVEAUX GRAPHIQUES DU BAS ---
+    st.markdown("---")
     col_g1, col_g2 = st.columns(2)
+
+    # GRAPHIQUE 1: Pie Chart (Ventilation financière)
     with col_g1:
-        fig_type = px.pie(df_filtered, values="quantite", names="type", title="Répartition par Type")
-        st.plotly_chart(fig_type, use_container_width=True)
+        with st.container(border=True):
+            st.subheader("🥧 Répartition Financière Globale")
+            
+            cout_achat_vendus = max(total_achat_vendus, 0.0)
+            ben_realise_positif = max(benefice_realise, 0.0)
+            
+            data_pie = {
+                "Catégorie": ["Total Investi (En Stock)", "Coût d'Achat des Produits Vendus", "Bénéfice Réel"],
+                "Montant (€)": [total_investi_stock, cout_achat_vendus, ben_realise_positif]
+            }
+            df_pie = pd.DataFrame(data_pie)
+            
+            fig_pie = px.pie(
+                df_pie, 
+                values="Montant (€)", 
+                names="Catégorie",
+                color="Catégorie",
+                color_discrete_map={
+                    "Total Investi (En Stock)": "#ff9900",
+                    "Coût d'Achat des Produits Vendus": "#00bfff",
+                    "Bénéfice Réel": "#00ffcc"
+                },
+                hole=0.4
+            )
+            fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+            fig_pie.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+    # GRAPHIQUE 2: Courbes Comparatives (Prix d'achat vs Prix de vente)
     with col_g2:
-        fig_statut = px.bar(df_filtered, x="nom", y="Total Achat", color="statut", title="Investissement par produit")
-        st.plotly_chart(fig_statut, use_container_width=True)
+        with st.container(border=True):
+            st.subheader("📊 Comparatif Prix d'Achat vs Prix de Vente")
+            
+            if not df_vendus_global.empty:
+                df_curve = df_vendus_global.sort_values(by="id").reset_index(drop=True)
+                df_curve["N_Vente"] = df_curve.index + 1
+
+                fig_curve = go.Figure()
+                
+                # Courbe Prix d'Achat (Total Achat de la ligne)
+                fig_curve.add_trace(go.Scatter(
+                    x=df_curve["N_Vente"],
+                    y=df_curve["Total Achat"],
+                    mode='lines+markers',
+                    name="Prix d'Achat (€)",
+                    line=dict(color='#00bfff', width=3),
+                    marker=dict(size=8),
+                    text=df_curve["nom"]
+                ))
+                
+                # Courbe Prix de Vente (Total Vente de la ligne)
+                fig_curve.add_trace(go.Scatter(
+                    x=df_curve["N_Vente"],
+                    y=df_curve["Total Vente"],
+                    mode='lines+markers',
+                    name="Prix de Vente (€)",
+                    line=dict(color='#00ffcc', width=3),
+                    marker=dict(size=8),
+                    text=df_curve["nom"]
+                ))
+
+                fig_curve.update_xaxes(dtick=1, tick0=1, title="Nombre de ventes effectuées")
+                fig_curve.update_yaxes(title="Montant (€)")
+                fig_curve.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                st.plotly_chart(fig_curve, use_container_width=True)
+            else:
+                st.info("Réalisez au moins une vente pour afficher les courbes comparatives.")
 
 else:
     st.info("Votre inventaire est vide. Ajoutez votre premier article depuis la barre latérale !")
