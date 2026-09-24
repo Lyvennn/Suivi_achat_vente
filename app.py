@@ -115,14 +115,14 @@ if not df.empty:
     df["Total Vente"] = df["prixRevente"] * df["quantite"]
 
     # --- CALCULS POUR LES METRIQUES ---
-    df_stock = df[df["statut"] == "En stock"]
-    df_vendus = df[df["statut"] == "Vendu"].copy()
+    df_stock_global = df[df["statut"] == "En stock"]
+    df_vendus_global = df[df["statut"] == "Vendu"].copy()
     
-    total_investi_stock = df_stock["Total Achat"].sum()
-    nb_articles_stock = df_stock["quantite"].sum()
+    total_investi_stock = df_stock_global["Total Achat"].sum()
+    nb_articles_stock = df_stock_global["quantite"].sum()
     
-    total_vente_realisee = df_vendus["Total Vente"].sum()
-    total_achat_vendus = df_vendus["Total Achat"].sum()
+    total_vente_realisee = df_vendus_global["Total Vente"].sum()
+    total_achat_vendus = df_vendus_global["Total Achat"].sum()
     benefice_realise = total_vente_realisee - total_achat_vendus
     
     if total_achat_vendus > 0:
@@ -153,31 +153,25 @@ if not df.empty:
     with col4:
         with st.container(border=True):
             st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Bénéfice Réel (€)</p>", unsafe_allow_html=True)
-            # Vert clair vif (#00ffcc) réappliqué
             couleur_ben = "#00ffcc" if benefice_realise >= 0 else "#ff4d4d"
             st.markdown(f"<h2 style='text-align: center; color: {couleur_ben}; margin-top: 0;'>{benefice_realise:.2f} €</h2>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     # --- 2. GRAPHIQUE D'ÉVOLUTION DE LA PLUS-VALUE PAR VENTE ---
-    if not df_vendus.empty:
+    if not df_vendus_global.empty:
         with st.container(border=True):
             st.subheader("📈 Évolution du Bénéfice Cumulé selon les Ventes")
             
-            # Calcul du bénéfice unitaire par ligne vendue
-            df_vendus["Benefice_Unitaire"] = df_vendus["Total Vente"] - df_vendus["Total Achat"]
+            df_vendus_chart = df_vendus_global.copy()
+            df_vendus_chart["Benefice_Unitaire"] = df_vendus_chart["Total Vente"] - df_vendus_chart["Total Achat"]
+            df_vendus_chart = df_vendus_chart.sort_values(by="id").reset_index(drop=True)
+            df_vendus_chart["N_Vente"] = df_vendus_chart.index + 1
+            df_vendus_chart["Benefice_Cumule"] = df_vendus_chart["Benefice_Unitaire"].cumsum()
             
-            # Tri par ID (ordre chronologique de saisie/vente)
-            df_vendus = df_vendus.sort_values(by="id").reset_index(drop=True)
-            df_vendus["N_Vente"] = df_vendus.index + 1
-            
-            # Bénéfice cumulé
-            df_vendus["Benefice_Cumule"] = df_vendus["Benefice_Unitaire"].cumsum()
-            
-            # Ajout d'un point 0 initial pour un beau tracé
             df_chart = pd.concat([
                 pd.DataFrame([{"N_Vente": 0, "Benefice_Cumule": 0.0, "nom": "Départ"}]),
-                df_vendus[["N_Vente", "Benefice_Cumule", "nom"]]
+                df_vendus_chart[["N_Vente", "Benefice_Cumule", "nom"]]
             ], ignore_index=True)
 
             fig_evo = px.line(
@@ -189,10 +183,7 @@ if not df.empty:
                 labels={"N_Vente": "Nombre de ventes effectuées", "Benefice_Cumule": "Bénéfice Cumulé (€)"}
             )
             fig_evo.update_traces(line_color="#00ffcc", line_width=3, marker=dict(size=8))
-            
-            # Force l'axe X à n'afficher strictement que des entiers
             fig_evo.update_xaxes(dtick=1, tick0=0)
-            
             fig_evo.update_layout(height=300, margin=dict(l=20, r=20, t=30, b=20))
             st.plotly_chart(fig_evo, use_container_width=True)
             
@@ -220,41 +211,68 @@ if not df.empty:
 
     st.markdown("---")
 
-    # --- 4. INVENTAIRE ---
-    st.subheader("📋 Inventaire")
+    # --- 4. TABLEAU INVENTAIRE (ARTICLES EN STOCK UNIQUEMENT) ---
+    st.subheader("📋 Inventaire (En Stock)")
+    df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
 
-    # En-tête du tableau
-    cols_header = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
-    headers = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Tot. Achat", "Tot. Vente", "Statut", "Action"]
-    for col, h in zip(cols_header, headers):
-        col.markdown(f"**{h}**")
+    if not df_stock_display.empty:
+        cols_header = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+        headers = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Tot. Achat", "Tot. Vente", "Statut", "Action"]
+        for col, h in zip(cols_header, headers):
+            col.markdown(f"**{h}**")
 
-    # Lignes du tableau
-    for idx, row in df_filtered.iterrows():
-        c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_ta, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
-        
-        c_id.write(f"`{row['id']}`")
-        c_type.write(row['type'])
-        c_nom.write(row['nom'])
-        c_qte.write(row['quantite'])
-        c_pa.write(f"{row['prixAchat']:.2f} €")
-        c_pv.write(f"{row['prixRevente']:.2f} €")
-        c_ta.write(f"{row['Total Achat']:.2f} €")
-        c_tv.write(f"{row['Total Vente']:.2f} €")
-        
-        if row['statut'] == "En stock":
+        for idx, row in df_stock_display.iterrows():
+            c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_ta, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+            
+            c_id.write(f"`{row['id']}`")
+            c_type.write(row['type'])
+            c_nom.write(row['nom'])
+            c_qte.write(row['quantite'])
+            c_pa.write(f"{row['prixAchat']:.2f} €")
+            c_pv.write(f"{row['prixRevente']:.2f} €")
+            c_ta.write(f"{row['Total Achat']:.2f} €")
+            c_tv.write(f"{row['Total Vente']:.2f} €")
             c_stat.markdown("🟢 En stock")
+            
             if c_act.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
                 modal_vente(row.to_dict())
+    else:
+        st.info("Aucun article en stock correspondant à la recherche.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- 5. TABLEAU HISTORIQUE DES VENTES (MASQUABLE) ---
+    df_vendu_display = df_filtered[df_filtered["statut"] == "Vendu"]
+    
+    with st.expander(f"📜 Historique des Ventes ({len(df_vendu_display)} article(s) vendu(s))", expanded=False):
+        if not df_vendu_display.empty:
+            cols_header_v = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+            headers_v = ["#", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Tot. Achat", "Tot. Vente", "Statut", "Action"]
+            for col, h in zip(cols_header_v, headers_v):
+                col.markdown(f"**{h}**")
+
+            for idx, row in df_vendu_display.iterrows():
+                c_id, c_type, c_nom, c_qte, c_pa, c_pv, c_ta, c_tv, c_stat, c_act = st.columns([0.6, 1.2, 2.5, 0.8, 1.2, 1.2, 1.2, 1.2, 1.0, 1.0])
+                
+                c_id.write(f"`{row['id']}`")
+                c_type.write(row['type'])
+                c_nom.write(row['nom'])
+                c_qte.write(row['quantite'])
+                c_pa.write(f"{row['prixAchat']:.2f} €")
+                c_pv.write(f"{row['prixRevente']:.2f} €")
+                c_ta.write(f"{row['Total Achat']:.2f} €")
+                c_tv.write(f"{row['Total Vente']:.2f} €")
+                c_stat.markdown("🔴 Vendu")
+                
+                if c_act.button("↩️", key=f"undo_btn_{row['id']}", help="Annuler la vente et remettre en stock"):
+                    supabase.table("inventaire").update({
+                        "statut": "En stock",
+                        "prixRevente": 0.0
+                    }).eq("id", row['id']).execute()
+                    st.success("Article remis en stock !")
+                    st.rerun()
         else:
-            c_stat.markdown("🔴 Vendu")
-            if c_act.button("↩️", key=f"undo_btn_{row['id']}", help="Annuler la vente et remettre en stock"):
-                supabase.table("inventaire").update({
-                    "statut": "En stock",
-                    "prixRevente": 0.0
-                }).eq("id", row['id']).execute()
-                st.success("Article remis en stock !")
-                st.rerun()
+            st.write("Aucune vente enregistrée pour le moment.")
 
     # Zone de suppression
     st.markdown("---")
