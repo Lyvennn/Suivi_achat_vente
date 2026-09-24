@@ -153,7 +153,8 @@ if not df.empty:
     with col4:
         with st.container(border=True):
             st.markdown("<p style='text-align: center; color: #aaa; margin-bottom: 5px;'>Bénéfice Réel (€)</p>", unsafe_allow_html=True)
-            couleur_ben = "#1b5e20" if benefice_realise >= 0 else "#c62828"
+            # Vert clair vif (#00ffcc) réappliqué
+            couleur_ben = "#00ffcc" if benefice_realise >= 0 else "#ff4d4d"
             st.markdown(f"<h2 style='text-align: center; color: {couleur_ben}; margin-top: 0;'>{benefice_realise:.2f} €</h2>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -187,7 +188,11 @@ if not df.empty:
                 hover_data=["nom"],
                 labels={"N_Vente": "Nombre de ventes effectuées", "Benefice_Cumule": "Bénéfice Cumulé (€)"}
             )
-            fig_evo.update_traces(line_color="#1b5e20", line_width=3, marker=dict(size=8))
+            fig_evo.update_traces(line_color="#00ffcc", line_width=3, marker=dict(size=8))
+            
+            # Force l'axe X à n'afficher strictement que des entiers
+            fig_evo.update_xaxes(dtick=1, tick0=0)
+            
             fig_evo.update_layout(height=300, margin=dict(l=20, r=20, t=30, b=20))
             st.plotly_chart(fig_evo, use_container_width=True)
             
