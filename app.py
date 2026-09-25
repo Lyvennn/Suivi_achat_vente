@@ -182,7 +182,6 @@ def modal_edition(item):
     st.write(f"**Modification de l'article ID #{item['id']}**")
     
     with st.form("form_modal_edition"):
-        # Index du type actuel
         idx_type = TYPES_ARTICLES.index(item['type']) if item['type'] in TYPES_ARTICLES else 0
         new_type = st.selectbox("Type", TYPES_ARTICLES, index=idx_type)
         new_nom = st.text_input("Nom de l'article", value=item['nom'])
@@ -295,9 +294,8 @@ if not df.empty:
                     unsafe_allow_html=True
                 )
 
-            df_vendus_chart = df_vendus_global.copy()
+            df_vendus_chart = df_vendus_global.sort_values(by="id").reset_index(drop=True)
             df_vendus_chart["Benefice_Unitaire"] = df_vendus_chart["Total Vente"] - df_vendus_chart["Total Achat"]
-            df_vendus_chart = df_vendus_chart.sort_values(by="id").reset_index(drop=True)
             df_vendus_chart["N_Vente"] = df_vendus_chart.index + 1
             df_vendus_chart["Benefice_Cumule"] = df_vendus_chart["Benefice_Unitaire"].cumsum()
             
@@ -316,7 +314,6 @@ if not df.empty:
             )
             fig_evo.update_traces(line_color="#00ffcc", line_width=3, marker=dict(size=8))
             
-            # Ajustement dynamique des graduations (0, 5, 10, 15...)
             max_ventes = len(df_vendus_chart)
             dtick_val = 5 if max_ventes <= 30 else 10
             fig_evo.update_xaxes(rangemode="nonnegative", dtick=dtick_val, tick0=0)
@@ -350,17 +347,16 @@ if not df.empty:
 
     # --- 4. TABLEAU INVENTAIRE (ARTICLES EN STOCK) ---
     st.subheader("📋 Inventaire (En Stock)")
-    df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
+    df_stock_display = df_filtered[df_filtered["statut"] == "En stock"].sort_values(by="id", ascending=False)
 
     if not df_stock_display.empty:
-        # Ajustement des largeurs de colonnes pour intégrer le bouton d'édition
-        cols_header = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 1.2])
+        cols_header = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 1.4])
         headers = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Actions"]
         for col, h in zip(cols_header, headers):
             col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
         for idx, row in df_stock_display.iterrows():
-            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 1.2])
+            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 1.4])
             
             c_id.markdown(f"<div class='cell-center'><code>{row['id']}</code></div>", unsafe_allow_html=True)
             
@@ -377,20 +373,25 @@ if not df.empty:
             c_stat.markdown("<div class='cell-center'>🟢 En stock</div>", unsafe_allow_html=True)
             
             with c_act:
-                col_btn1, col_btn2 = st.columns(2)
+                col_btn1, col_btn2, col_btn3 = st.columns(3)
                 with col_btn1:
                     if st.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
                         modal_vente(row.to_dict())
                 with col_btn2:
                     if st.button("✏️", key=f"edit_btn_{row['id']}", help="Modifier cet article"):
                         modal_edition(row.to_dict())
+                with col_btn3:
+                    if st.button("🗑️", key=f"del_btn_{row['id']}", help="Supprimer cet article"):
+                        supabase.table("inventaire").delete().eq("id", row['id']).execute()
+                        st.warning("Article supprimé !")
+                        st.rerun()
     else:
         st.info("Aucun article en stock correspondant à la recherche.")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- 5. TABLEAU HISTORIQUE DES VENTES ---
-    df_vendu_display = df_filtered[df_filtered["statut"] == "Vendu"].copy()
+    # --- 5. TABLEAU HISTORIQUE DES VENTES (TRIÉ DU PLUS RÉCENT AU PLUS ANCIEN) ---
+    df_vendu_display = df_filtered[df_filtered["statut"] == "Vendu"].sort_values(by="id", ascending=False).copy()
     
     with st.expander(f"📜 Historique des Ventes ({len(df_vendu_display)} article(s) vendu(s))", expanded=False):
         if not df_vendu_display.empty:
@@ -400,13 +401,13 @@ if not df.empty:
             )
             max_marge_val = df_vendu_display["Marge_Calc"].max()
 
-            cols_header_v = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 1.2])
+            cols_header_v = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 1.4])
             headers_v = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Actions"]
             for col, h in zip(cols_header_v, headers_v):
                 col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
             for idx, row in df_vendu_display.iterrows():
-                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 1.2])
+                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 1.4])
                 
                 p_achat = row['prixAchat']
                 marge_pct = row["Marge_Calc"]
@@ -447,7 +448,7 @@ if not df.empty:
                 c_stat.markdown("<div class='cell-center'>🔴 Vendu</div>", unsafe_allow_html=True)
                 
                 with c_act:
-                    col_vbtn1, col_vbtn2 = st.columns(2)
+                    col_vbtn1, col_vbtn2, col_vbtn3 = st.columns(3)
                     with col_vbtn1:
                         if st.button("↩️", key=f"undo_btn_{row['id']}", help="Annuler la vente et remettre en stock"):
                             supabase.table("inventaire").update({
@@ -459,15 +460,20 @@ if not df.empty:
                     with col_vbtn2:
                         if st.button("✏️", key=f"edit_v_btn_{row['id']}", help="Modifier cet article"):
                             modal_edition(row.to_dict())
+                    with col_vbtn3:
+                        if st.button("🗑️", key=f"del_v_btn_{row['id']}", help="Supprimer cet article"):
+                            supabase.table("inventaire").delete().eq("id", row['id']).execute()
+                            st.warning("Article supprimé !")
+                            st.rerun()
         else:
             st.write("Aucune vente enregistrée pour le moment.")
 
-    # --- ZONE DE SUPPRESSION RAPIDE ---
-    with st.expander("🗑️ Supprimer un article"):
+    # --- ZONE DE SUPPRESSION PAR SÉLECTION (NOM + TYPE) ---
+    with st.expander("🗑️ Supprimer un article via la liste"):
         article_a_supprimer = st.selectbox(
             "Choisir l'article à supprimer définitivement", 
             options=df["id"].tolist(), 
-            format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]} ({df[df['id']==x]['statut'].values[0]})",
+            format_func=lambda x: f"ID #{x} - [{df[df['id']==x]['type'].values[0]}] - {df[df['id']==x]['nom'].values[0]} ({df[df['id']==x]['statut'].values[0]})",
             key="select_delete"
         )
         if st.button("Confirmer la suppression"):
