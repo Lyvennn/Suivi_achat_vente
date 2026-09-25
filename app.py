@@ -34,7 +34,7 @@ st.markdown("""
     padding-top: 4px;
     padding-bottom: 4px;
 }
-/* Alignement du bouton Streamlit au centre de sa colonne */
+/* Alignement des boutons Streamlit au centre de la colonne */
 div[data-testid="stColumn"] > div {
     display: flex;
     justify-content: center;
@@ -176,6 +176,42 @@ def modal_vente(item):
             st.success("Vente enregistrée !")
             st.rerun()
 
+# Fenêtre modale (Pop-up) pour l'édition complète d'un article
+@st.dialog("✏️ Modifier un article")
+def modal_edition(item):
+    st.write(f"**Modification de l'article ID #{item['id']}**")
+    
+    with st.form("form_modal_edition"):
+        # Index du type actuel
+        idx_type = TYPES_ARTICLES.index(item['type']) if item['type'] in TYPES_ARTICLES else 0
+        new_type = st.selectbox("Type", TYPES_ARTICLES, index=idx_type)
+        new_nom = st.text_input("Nom de l'article", value=item['nom'])
+        new_qte = st.number_input("Quantité", min_value=1, value=int(item['quantite']))
+        
+        idx_statut = 0 if item['statut'] == "En stock" else 1
+        new_statut = st.selectbox("Statut", ["En stock", "Vendu"], index=idx_statut)
+        
+        new_prix_a = st.number_input("Prix d'achat unitaire (€)", min_value=0.0, value=float(item['prixAchat']), step=1.0)
+        new_prix_v = st.number_input("Prix de vente unitaire réel (€)", min_value=0.0, value=float(item['prixRevente']), step=1.0)
+        
+        val_img = str(item.get('image_url')) if pd.notna(item.get('image_url')) else ""
+        new_img_url = st.text_input("Lien de l'image (URL)", value=val_img)
+        
+        valider = st.form_submit_button("Sauvegarder les modifications")
+        if valider:
+            supabase.table("inventaire").update({
+                "type": new_type,
+                "nom": new_nom,
+                "quantite": int(new_qte),
+                "prixAchat": float(new_prix_a),
+                "prixRevente": float(new_prix_v),
+                "statut": new_statut,
+                "image_url": new_img_url.strip() if new_img_url.strip() else None
+            }).eq("id", item['id']).execute()
+            
+            st.success("Article mis à jour !")
+            st.rerun()
+
 if not df.empty:
     # Calculs de base
     df["Total Achat"] = df["prixAchat"] * df["quantite"]
@@ -279,7 +315,12 @@ if not df.empty:
                 labels={"N_Vente": "Nombre de ventes effectuées", "Benefice_Cumule": "Bénéfice Cumulé (€)"}
             )
             fig_evo.update_traces(line_color="#00ffcc", line_width=3, marker=dict(size=8))
-            fig_evo.update_xaxes(dtick=1, tick0=0)
+            
+            # Ajustement dynamique des graduations (0, 5, 10, 15...)
+            max_ventes = len(df_vendus_chart)
+            dtick_val = 5 if max_ventes <= 30 else 10
+            fig_evo.update_xaxes(rangemode="nonnegative", dtick=dtick_val, tick0=0)
+            
             fig_evo.update_layout(height=300, margin=dict(l=20, r=20, t=10, b=20))
             st.plotly_chart(fig_evo, use_container_width=True)
             
@@ -312,13 +353,14 @@ if not df.empty:
     df_stock_display = df_filtered[df_filtered["statut"] == "En stock"]
 
     if not df_stock_display.empty:
-        cols_header = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 0.8])
-        headers = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Action"]
+        # Ajustement des largeurs de colonnes pour intégrer le bouton d'édition
+        cols_header = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 1.2])
+        headers = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "Tot. Achat", "Statut", "Actions"]
         for col, h in zip(cols_header, headers):
             col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
         for idx, row in df_stock_display.iterrows():
-            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 0.8])
+            c_id, c_img, c_type, c_nom, c_qte, c_pa, c_ta, c_stat, c_act = st.columns([0.5, 0.9, 1.0, 2.0, 0.5, 0.9, 0.9, 0.9, 1.2])
             
             c_id.markdown(f"<div class='cell-center'><code>{row['id']}</code></div>", unsafe_allow_html=True)
             
@@ -335,8 +377,13 @@ if not df.empty:
             c_stat.markdown("<div class='cell-center'>🟢 En stock</div>", unsafe_allow_html=True)
             
             with c_act:
-                if st.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
-                    modal_vente(row.to_dict())
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("🛒", key=f"sell_btn_{row['id']}", help="Vendre cet article"):
+                        modal_vente(row.to_dict())
+                with col_btn2:
+                    if st.button("✏️", key=f"edit_btn_{row['id']}", help="Modifier cet article"):
+                        modal_edition(row.to_dict())
     else:
         st.info("Aucun article en stock correspondant à la recherche.")
 
@@ -353,13 +400,13 @@ if not df.empty:
             )
             max_marge_val = df_vendu_display["Marge_Calc"].max()
 
-            cols_header_v = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 0.8])
-            headers_v = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Action"]
+            cols_header_v = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 1.2])
+            headers_v = ["#", "Visuel", "Type", "Nom", "Qté", "P. Achat", "P. Vente", "Marge (%)", "Tot. Vente", "Statut", "Actions"]
             for col, h in zip(cols_header_v, headers_v):
                 col.markdown(f"<div class='cell-center'><b>{h}</b></div>", unsafe_allow_html=True)
 
             for idx, row in df_vendu_display.iterrows():
-                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 0.8])
+                c_id, c_img, c_type, c_nom, c_qte, c_pa, c_pv, c_marge, c_tv, c_stat, c_act = st.columns([0.5, 0.9, 0.9, 1.8, 0.5, 0.8, 0.8, 0.9, 0.8, 0.8, 1.2])
                 
                 p_achat = row['prixAchat']
                 marge_pct = row["Marge_Calc"]
@@ -400,55 +447,33 @@ if not df.empty:
                 c_stat.markdown("<div class='cell-center'>🔴 Vendu</div>", unsafe_allow_html=True)
                 
                 with c_act:
-                    if st.button("↩️", key=f"undo_btn_{row['id']}", help="Annuler la vente et remettre en stock"):
-                        supabase.table("inventaire").update({
-                            "statut": "En stock",
-                            "prixRevente": 0.0
-                        }).eq("id", row['id']).execute()
-                        st.success("Article remis en stock !")
-                        st.rerun()
+                    col_vbtn1, col_vbtn2 = st.columns(2)
+                    with col_vbtn1:
+                        if st.button("↩️", key=f"undo_btn_{row['id']}", help="Annuler la vente et remettre en stock"):
+                            supabase.table("inventaire").update({
+                                "statut": "En stock",
+                                "prixRevente": 0.0
+                            }).eq("id", row['id']).execute()
+                            st.success("Article remis en stock !")
+                            st.rerun()
+                    with col_vbtn2:
+                        if st.button("✏️", key=f"edit_v_btn_{row['id']}", help="Modifier cet article"):
+                            modal_edition(row.to_dict())
         else:
             st.write("Aucune vente enregistrée pour le moment.")
 
-    # --- ZONE D'ÉDITION DES VISUELS ET SUPPRESSION ---
-    col_e1, col_e2 = st.columns(2)
-    
-    with col_e1:
-        with st.expander("🖼️ Modifier le visuel d'un article"):
-            article_a_editer = st.selectbox(
-                "Choisir l'article", 
-                options=df["id"].tolist(), 
-                format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]} ({df[df['id']==x]['statut'].values[0]})",
-                key="select_edit_img"
-            )
-            item_edit = df[df["id"] == article_a_editer].iloc[0]
-            
-            valeur_url_actuelle = str(item_edit.get("image_url")) if pd.notna(item_edit.get("image_url")) else ""
-            
-            if valeur_url_actuelle:
-                st.image(valeur_url_actuelle, caption="Visuel actuel", width=100)
-            
-            nouvel_url = st.text_input("Lien de l'image (URL)", value=valeur_url_actuelle, key="input_edit_img")
-            
-            if st.button("Mettre à jour le visuel"):
-                supabase.table("inventaire").update({
-                    "image_url": nouvel_url if nouvel_url.strip() else None
-                }).eq("id", article_a_editer).execute()
-                st.success("Visuel mis à jour !")
-                st.rerun()
-
-    with col_e2:
-        with st.expander("🗑️ Supprimer un article"):
-            article_a_supprimer = st.selectbox(
-                "Choisir l'article à supprimer", 
-                options=df["id"].tolist(), 
-                format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]}",
-                key="select_delete"
-            )
-            if st.button("Confirmer la suppression"):
-                supabase.table("inventaire").delete().eq("id", article_a_supprimer).execute()
-                st.warning("Article supprimé !")
-                st.rerun()
+    # --- ZONE DE SUPPRESSION RAPIDE ---
+    with st.expander("🗑️ Supprimer un article"):
+        article_a_supprimer = st.selectbox(
+            "Choisir l'article à supprimer définitivement", 
+            options=df["id"].tolist(), 
+            format_func=lambda x: f"ID {x} - {df[df['id']==x]['nom'].values[0]} ({df[df['id']==x]['statut'].values[0]})",
+            key="select_delete"
+        )
+        if st.button("Confirmer la suppression"):
+            supabase.table("inventaire").delete().eq("id", article_a_supprimer).execute()
+            st.warning("Article supprimé !")
+            st.rerun()
 
     # --- 6. GRAPHIQUES DU BAS ---
     st.markdown("---")
@@ -542,7 +567,9 @@ if not df.empty:
                     text=df_curve_chart["nom"]
                 ))
 
-                fig_curve.update_xaxes(dtick=1, tick0=0, title="Nombre de ventes effectuées")
+                max_ventes_c = len(df_curve)
+                dtick_val_c = 5 if max_ventes_c <= 30 else 10
+                fig_curve.update_xaxes(rangemode="nonnegative", dtick=dtick_val_c, tick0=0, title="Nombre de ventes effectuées")
                 fig_curve.update_yaxes(title="Montant Cumulé (€)")
                 fig_curve.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
                 st.plotly_chart(fig_curve, use_container_width=True)
